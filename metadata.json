@@ -1,0 +1,6 @@
+{
+  "name": "Nizami Hardware Suite",
+  "description": "An advanced ERP and POS suite for hardware retail, featuring multi-unit stocks, dual-pricing tier schedules, contractor credit books & khata installment accounting, and automated purchase order restocks.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

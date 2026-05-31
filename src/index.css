@@ -1,0 +1,141 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,100..900;1,100..900&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&family=Noto+Naskh+Arabic:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", "Noto Naskh Arabic", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+@media print {
+  /* Force colors, background images, and borders to render exactly in print */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  html, body {
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: white !important;
+    color: black !important;
+  }
+
+  /* Hide print controls, sticky headers, sidebar, actions and buttons */
+  .no-print,
+  aside,
+  header,
+  button,
+  nav {
+    display: none !important;
+    visibility: hidden !important;
+    height: 0 !important;
+    width: 0 !important;
+    overflow: hidden !important;
+  }
+
+  #print-section {
+    position: relative !important;
+    display: block !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: white !important;
+  }
+
+  .page-break-inside-avoid {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  /* Support POS Receipt Modal printing on the main web workspace */
+  body:has(#pos-receipt-print) {
+    background: white !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Hide sidebar, header and non-printable elements */
+  body:has(#pos-receipt-print) aside,
+  body:has(#pos-receipt-print) header,
+  body:has(#pos-receipt-print) .no-print {
+    display: none !important;
+    visibility: hidden !important;
+    height: 0 !important;
+    width: 0 !important;
+    overflow: hidden !important;
+  }
+
+  /* Unset high-level container constraints */
+  body:has(#pos-receipt-print) #root,
+  body:has(#pos-receipt-print) #root > div,
+  body:has(#pos-receipt-print) main,
+  body:has(#pos-receipt-print) main > div {
+    display: block !important;
+    background: white !important;
+    color: black !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+    overflow: visible !important;
+  }
+
+  /* Hide other active tabs/siblings */
+  body:has(#pos-receipt-print) main > div > *:not(:has(#pos-receipt-print)) {
+    display: none !important;
+  }
+
+  /* Hide components inside POSTab except the printable modal wrapper */
+  body:has(#pos-receipt-print) main > div > :has(#pos-receipt-print) > *:not(:has(#pos-receipt-print)) {
+    display: none !important;
+  }
+
+  /* Clear overlays from modal wrapper so it renders inline on printed page */
+  body:has(#pos-receipt-print) .fixed.inset-0:has(#pos-receipt-print) {
+    position: static !important;
+    display: block !important;
+    background: white !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    z-index: 99999 !important;
+  }
+
+  body:has(#pos-receipt-print) .fixed.inset-0:has(#pos-receipt-print) > div {
+    position: static !important;
+    display: block !important;
+    width: 80mm !important;
+    max-width: 100% !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+    background: white !important;
+    box-shadow: none !important;
+    overflow: visible !important;
+    max-height: none !important;
+    border: none !important;
+  }
+
+  body:has(#pos-receipt-print) #pos-receipt-print {
+    display: block !important;
+    width: 80mm !important;
+    max-width: 100% !important;
+    margin: 0 auto !important;
+    background: white !important;
+    color: black !important;
+    visibility: visible !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 10px !important;
+  }
+}
+
+

@@ -1,0 +1,1243 @@
+import React, { useState, useEffect } from 'react';
+import { 
+  Product, 
+  Customer, 
+  Supplier, 
+  PurchaseOrder, 
+  SaleRecord, 
+  CartItem, 
+  SavedCart,
+  LedgerEntry,
+  SupplierLedgerEntry,
+  Expense,
+  UserAccount,
+  AuditLog,
+  StoreSettings
+} from './types';
+import { 
+  INITIAL_PRODUCTS, 
+  INITIAL_CUSTOMERS, 
+  INITIAL_SUPPLIERS, 
+  INITIAL_PURCHASE_ORDERS, 
+  INITIAL_SALES,
+  INITIAL_EXPENSES
+} from './data/mockData';
+
+// Tabs
+import DashboardTab from './components/DashboardTab';
+import InventoryTab from './components/InventoryTab';
+import POSTab from './components/POSTab';
+import KhataTab from './components/KhataTab';
+import SupplierTab from './components/SupplierTab';
+import ReportsTab from './components/ReportsTab';
+import StaffTab from './components/StaffTab';
+import PrintSheetPage from './components/PrintSheetPage';
+
+// Icons
+import LoginScreen from './components/LoginScreen';
+import { translations, Language } from './translations';
+import { 
+  LogOut,
+  Globe,
+  LayoutDashboard, 
+  Boxes, 
+  Receipt, 
+  NotebookPen, 
+  Warehouse, 
+  LineChart, 
+  Bell, 
+  HardHat,
+  AlertTriangle,
+  HeartHandshake,
+  ShieldAlert
+} from 'lucide-react';
+
+export default function App() {
+  // Check if we are in printable mode
+  const isPrintRoute = typeof window !== 'undefined' && window.location.search.includes('print=true');
+
+  if (isPrintRoute) {
+    return <PrintSheetPage />;
+  }
+
+  // Auth state
+  const [currentUser, setCurrentUser] = useState<{username: string; role: 'admin' | 'cashier'} | null>(() => {
+    const saved = localStorage.getItem('hw_current_user');
+    return saved ? JSON.parse(saved) : null;
+  });
+
+  // Language state
+  const [language, setLanguage] = useState<Language>(() => {
+    const saved = localStorage.getItem('hw_language');
+    return (saved === 'ur' || saved === 'en') ? saved as Language : 'en';
+  });
+
+  // Store General Profile Settings (Dynamic company details)
+  const [storeSettings, setStoreSettings] = useState<StoreSettings>(() => {
+    const saved = localStorage.getItem('hw_store_settings');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        // Fallback
+      }
+    }
+    return {
+      storeName: 'Nizami Hardware Store',
+      storePhone: '+92 300 1234567',
+      storeEmail: 'nizamihardware@gmail.com',
+      storeAddress: 'Main Gate Bazaar, Nizami Chowk, Lahore, Pakistan'
+    };
+  });
+
+  // Sync Auth, Language & Store Settings to client Storage
+  useEffect(() => {
+    if (currentUser) {
+      localStorage.setItem('hw_current_user', JSON.stringify(currentUser));
+    } else {
+      localStorage.removeItem('hw_current_user');
+    }
+  }, [currentUser]);
+
+  useEffect(() => {
+    localStorage.setItem('hw_language', language);
+  }, [language]);
+
+  useEffect(() => {
+    localStorage.setItem('hw_store_settings', JSON.stringify(storeSettings));
+  }, [storeSettings]);
+
+  const handleUpdateStoreSettings = (newSettings: StoreSettings) => {
+    setStoreSettings(newSettings);
+    logActivity('system', `Updated business profile properties. Store: "${newSettings.storeName}".`);
+    alert(language === 'ur' ? 'ماشاءاللہ! دکان کی معلومات کامیابی سے محفوظ کر دی گئی ہیں۔' : 'Physical store settings committed successfully!');
+  };
+
+  const t = translations[language];
+
+  // Navigation
+  const [activeTab, setActiveTab] = useState('dashboard');
+
+  // Relational Storage States
+  const [products, setProducts] = useState<Product[]>(() => {
+    const saved = localStorage.getItem('hw_products');
+    return saved ? JSON.parse(saved) : INITIAL_PRODUCTS;
+  });
+
+  const [customers, setCustomers] = useState<Customer[]>(() => {
+    const saved = localStorage.getItem('hw_customers');
+    return saved ? JSON.parse(saved) : INITIAL_CUSTOMERS;
+  });
+
+  const [suppliers, setSuppliers] = useState<Supplier[]>(() => {
+    const saved = localStorage.getItem('hw_suppliers');
+    return saved ? JSON.parse(saved) : INITIAL_SUPPLIERS;
+  });
+
+  const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>(() => {
+    const saved = localStorage.getItem('hw_purchase_orders');
+    return saved ? JSON.parse(saved) : INITIAL_PURCHASE_ORDERS;
+  });
+
+  const [sales, setSales] = useState<SaleRecord[]>(() => {
+    const saved = localStorage.getItem('hw_sales');
+    return saved ? JSON.parse(saved) : INITIAL_SALES;
+  });
+
+  const [expenses, setExpenses] = useState<Expense[]>(() => {
+    const saved = localStorage.getItem('hw_expenses');
+    return saved ? JSON.parse(saved) : INITIAL_EXPENSES;
+  });
+
+  const [users, setUsers] = useState<UserAccount[]>(() => {
+    const saved = localStorage.getItem('hw_users');
+    if (saved) return JSON.parse(saved);
+    return [
+      { id: 'u-1', username: 'admin', fullname: 'Umar Farooq (Manager)', pin: 'forge123', role: 'admin', createdAt: '2026-05-28T00:00:00Z' },
+      { id: 'u-2', username: 'staff', fullname: 'Hamza Yusuf (Cashier)', pin: 'staff123', role: 'cashier', createdAt: '2026-05-28T00:00:00Z' }
+    ];
+  });
+
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>(() => {
+    const saved = localStorage.getItem('hw_audit_logs');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  // POS Temporary Cart states
+  const [posCart, setPosCart] = useState<CartItem[]>([]);
+  const [heldCarts, setHeldCarts] = useState<SavedCart[]>([]);
+  const [priceTier, setPriceTier] = useState<'retail' | 'wholesale'>('retail');
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
+  const [prefilledPOProductId, setPrefilledPOProductId] = useState<string | null>(null);
+
+  // Synced side-effects to LocalStorage
+  useEffect(() => {
+    localStorage.setItem('hw_products', JSON.stringify(products));
+  }, [products]);
+
+  useEffect(() => {
+    localStorage.setItem('hw_customers', JSON.stringify(customers));
+  }, [customers]);
+
+  useEffect(() => {
+    localStorage.setItem('hw_suppliers', JSON.stringify(suppliers));
+  }, [suppliers]);
+
+  useEffect(() => {
+    localStorage.setItem('hw_purchase_orders', JSON.stringify(purchaseOrders));
+  }, [purchaseOrders]);
+
+  useEffect(() => {
+    localStorage.setItem('hw_sales', JSON.stringify(sales));
+  }, [sales]);
+
+  useEffect(() => {
+    localStorage.setItem('hw_expenses', JSON.stringify(expenses));
+  }, [expenses]);
+
+  useEffect(() => {
+    localStorage.setItem('hw_users', JSON.stringify(users));
+  }, [users]);
+
+  useEffect(() => {
+    localStorage.setItem('hw_audit_logs', JSON.stringify(auditLogs));
+  }, [auditLogs]);
+
+  // Log Activity Helper
+  const logActivity = (actionType: AuditLog['actionType'], details: string) => {
+    if (!currentUser) return;
+    const newLog: AuditLog = {
+      id: 'log-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+      timestamp: new Date().toISOString(),
+      username: currentUser.username,
+      role: currentUser.role || 'cashier',
+      actionType,
+      details
+    };
+    setAuditLogs(prev => [newLog, ...prev]);
+  };
+
+  const handleAddUser = (uname: string, fname: string, pinCode: string) => {
+    const newUser: UserAccount = {
+      id: 'u-' + Date.now(),
+      username: uname,
+      fullname: fname,
+      pin: pinCode,
+      role: 'cashier',
+      createdAt: new Date().toISOString()
+    };
+    setUsers([...users, newUser]);
+    logActivity('add_product', `Manager registered new staff cashier account: @${uname} (${fname})`);
+  };
+
+  const handleDeleteUser = (id: string) => {
+    const target = users.find(u => u.id === id);
+    if (target) {
+      setUsers(users.filter(u => u.id !== id));
+      logActivity('delete_product', `Manager deleted staff cashier account: @${target.username} (${target.fullname})`);
+    }
+  };
+
+  // Global Actions - Expenses
+  const handleAddExpense = (newExpense: Omit<Expense, 'id' | 'date'>) => {
+    const expense: Expense = {
+      ...newExpense,
+      id: 'exp-' + Date.now(),
+      date: new Date().toISOString()
+    };
+    setExpenses([...expenses, expense]);
+    logActivity('add_expense', `Added operational expense: "${newExpense.description}" of Rs. ${newExpense.amount.toFixed(2)} (${newExpense.type})`);
+  };
+
+  const handleDeleteExpense = (id: string) => {
+    const target = expenses.find(e => e.id === id);
+    setExpenses(expenses.filter(e => e.id !== id));
+    if (target) {
+      logActivity('delete_expense', `Deleted operational expense: "${target.description}" of Rs. ${target.amount.toFixed(2)} (${target.type})`);
+    }
+  };
+
+  // Systems Integration - Secure JSON Backup & Restore Flow
+  const handleExportBackup = () => {
+    try {
+      const backupData = {
+        appSign: "nizami-hardware-pos-ledger",
+        timestamp: new Date().toISOString(),
+        storeSettings,
+        products,
+        customers,
+        suppliers,
+        purchaseOrders,
+        sales,
+        expenses,
+        users,
+        auditLogs
+      };
+
+      const jsonStr = JSON.stringify(backupData, null, 2);
+      const blob = new Blob([jsonStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `Nizami_Hardware_DataBackup_${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      logActivity('system', 'Exported comprehensive database backup file.');
+      alert(language === 'ur' ? 'شاباش! ڈیٹا بیک اپ کامیابی سے ڈاؤن لوڈ کر لیا گیا ہے۔' : 'System backup file generated and downloaded successfully!');
+    } catch (e) {
+      alert('Backup failed: ' + (e as Error).message);
+    }
+  };
+
+  const handleImportBackup = (fileContent: string) => {
+    try {
+      const parsedData = JSON.parse(fileContent);
+      if (!parsedData || parsedData.appSign !== "nizami-hardware-pos-ledger") {
+        throw new Error(language === 'ur' ? 'غلط فائل فارمیٹ! برائے مہربانی صرف نظامی ہارڈویئر بیک اپ فائل منتخب کریں۔' : 'Invalid file format! Please select a valid backup data file exported from Nizami Hardware POS.');
+      }
+
+      const confirmMsg = language === 'ur'
+        ? 'کیا آپ واقعی اس بیک اپ فائل کو بحال (Restore) کرنا چاہتے ہیں؟ موجودہ تمام ڈیٹا اس سے تبدیل ہو جائے گا!'
+        : 'Are you sure you want to restore the entire database from this backup? Your current session data will be fully overwritten!';
+
+      if (!window.confirm(confirmMsg)) {
+        return;
+      }
+
+      // Safe State Restorations
+      if (parsedData.storeSettings) setStoreSettings(parsedData.storeSettings);
+      if (Array.isArray(parsedData.products)) setProducts(parsedData.products);
+      if (Array.isArray(parsedData.customers)) setCustomers(parsedData.customers);
+      if (Array.isArray(parsedData.suppliers)) setSuppliers(parsedData.suppliers);
+      if (Array.isArray(parsedData.purchaseOrders)) setPurchaseOrders(parsedData.purchaseOrders);
+      if (Array.isArray(parsedData.sales)) setSales(parsedData.sales);
+      if (Array.isArray(parsedData.expenses)) setExpenses(parsedData.expenses);
+      if (Array.isArray(parsedData.users)) setUsers(parsedData.users);
+      if (Array.isArray(parsedData.auditLogs)) {
+        setAuditLogs(parsedData.auditLogs);
+      } else {
+        setAuditLogs([]);
+      }
+
+      // Post-restore activity logging
+      const restLog: AuditLog = {
+        id: 'log-' + Date.now(),
+        timestamp: new Date().toISOString(),
+        username: currentUser?.username || 'system',
+        role: currentUser?.role || 'admin',
+        actionType: 'system',
+        details: `Restored local database backup file compiled on: ${parsedData.timestamp}`
+      };
+      setAuditLogs(prev => [restLog, ...(Array.isArray(parsedData.auditLogs) ? parsedData.auditLogs : [])]);
+
+      alert(language === 'ur' ? 'ماشاءاللہ! تمام ڈیٹا کامیابی سے بحال کر دیا گیا ہے۔' : 'Excellent! All databases have been successfully restored and synchronized.');
+    } catch (e) {
+      alert((language === 'ur' ? 'ریسٹور سسٹم ایرر: ' : 'Restore system error: ') + (e as Error).message);
+    }
+  };
+
+  // Global Actions - Products
+  const handleAddProduct = (newProduct: Omit<Product, 'id'>) => {
+    const id = 'prod-' + Date.now();
+    setProducts(prevProducts => [...prevProducts, { ...newProduct, id }]);
+    logActivity('add_product', `Added product specs for: "${newProduct.name}" [SKU: ${newProduct.code}, Category: ${newProduct.category}] with stock ${newProduct.stock}`);
+  };
+
+  const handleBulkAddProducts = (newProducts: Omit<Product, 'id'>[]) => {
+    const timestamp = Date.now();
+    const createdProducts: Product[] = newProducts.map((p, index) => ({
+      ...p,
+      id: `prod-${timestamp}-${index}`
+    }));
+    setProducts(prevProducts => [...prevProducts, ...createdProducts]);
+    logActivity('add_product', `Bulk imported ${newProducts.length} products to stock inventory catalog via Excel.`);
+  };
+
+  const handleUpdateProduct = (updated: Product) => {
+    const old = products.find(p => p.id === updated.id);
+    setProducts(products.map(p => p.id === updated.id ? updated : p));
+    if (old) {
+      logActivity('edit_product', `Updated product details for "${updated.name}" [SKU: ${updated.code}] - Price: Rs. ${updated.retailPrice}/Rs. ${updated.wholesalePrice}, Stock: ${updated.stock} (was ${old.stock})`);
+    }
+  };
+
+  const handleDeleteProduct = (id: string) => {
+    const target = products.find(p => p.id === id);
+    setProducts(products.filter(p => p.id !== id));
+    if (target) {
+      logActivity('delete_product', `Deleted product from catalog: "${target.name}" [SKU: ${target.code}]`);
+    }
+  };
+
+  // Global Actions - Customers (Khata Credit Ledger)
+  const handleAddCustomer = (newCustomer: Omit<Customer, 'id' | 'balance' | 'ledger'>) => {
+    const id = 'cust-' + Date.now();
+    setCustomers([...customers, { ...newCustomer, id, balance: 0.0, ledger: [] }]);
+    logActivity('add_customer', `Registered new credit contractor customer: "${newCustomer.name}" (Phone: ${newCustomer.phone})`);
+  };
+
+  const handleReceiveKhataPayment = (customerId: string, amount: number, note: string) => {
+    const target = customers.find(c => c.id === customerId);
+    setCustomers(customers.map(cust => {
+      if (cust.id === customerId) {
+        const revisedBalance = cust.balance - amount;
+        const entry: LedgerEntry = {
+          id: 'cl-pay-' + Date.now(),
+          date: new Date().toISOString(),
+          type: 'payment',
+          amount,
+          description: note,
+          balanceAfter: revisedBalance
+        };
+        return {
+          ...cust,
+          balance: revisedBalance,
+          ledger: [...cust.ledger, entry]
+        };
+      }
+      return cust;
+    }));
+    if (target) {
+      logActivity('khata_payment', `Received Khata outstanding payment of Rs. ${amount.toFixed(2)} from "${target.name}" - Note: "${note}"`);
+    }
+  };
+
+  // Global Actions - Suppliers
+  const handleAddSupplier = (newSupplier: Omit<Supplier, 'id' | 'balance' | 'ledger'>) => {
+    const id = 'supp-' + Date.now();
+    setCustomers([...customers]); // placeholder dummy
+    setSuppliers([...suppliers, { ...newSupplier, id, balance: 0.0, ledger: [] }]);
+    logActivity('add_supplier', `Registered new partner supplier: "${newSupplier.name}" (Phone: ${newSupplier.phone})`);
+  };
+
+  const handlePaySupplier = (supplierId: string, amount: number, memo: string) => {
+    const target = suppliers.find(s => s.id === supplierId);
+    setSuppliers(suppliers.map(supp => {
+      if (supp.id === supplierId) {
+        const revisedBalance = supp.balance - amount;
+        const entry: SupplierLedgerEntry = {
+          id: 'sl-pay-' + Date.now(),
+          date: new Date().toISOString(),
+          type: 'payment',
+          amount,
+          description: memo,
+          balanceAfter: revisedBalance
+        };
+        return {
+          ...supp,
+          balance: revisedBalance,
+          ledger: [...supp.ledger, entry]
+        };
+      }
+      return supp;
+    }));
+    if (target) {
+      logActivity('pay_supplier', `Disbursed supplier payment of Rs. ${amount.toFixed(2)} to "${target.name}" - Memo: "${memo}"`);
+    }
+  };
+
+  // Global Actions - Purchase Orders
+  const handleCreatePurchaseOrder = (newPO: Omit<PurchaseOrder, 'id' | 'supplierName'>) => {
+    const count = purchaseOrders.length + 101;
+    const id = `PO-${count}`;
+    const correspondingSupplier = suppliers.find(s => s.id === newPO.supplierId);
+    const supplierName = correspondingSupplier ? correspondingSupplier.name : 'Unknown Factory';
+
+    setPurchaseOrders([...purchaseOrders, { ...newPO, id, supplierName }]);
+    logActivity('create_po', `Created purchase order draft ${id} for "${supplierName}" - total amount Rs. ${newPO.totalAmount.toFixed(2)}`);
+  };
+
+  const handleUpdatePOStatus = (poId: string, status: 'draft' | 'ordered' | 'received') => {
+    setPurchaseOrders(purchaseOrders.map(po => po.id === poId ? { ...po, status } : po));
+    logActivity('update_po_status', `Updated purchase order ${poId} status to "${status}"`);
+  };
+
+  // Heavy replenishment action (mark PO received increment stock & record suppliers credit liability dues)
+  const handleReceivePurchaseOrderArticles = (receivedPO: PurchaseOrder) => {
+    // 1. Sync stock levels inside product catalog
+    setProducts(prevProducts => {
+      return prevProducts.map(prod => {
+        const orderedItem = receivedPO.items.find(item => item.productId === prod.id);
+        if (orderedItem) {
+          return {
+            ...prod,
+            stock: prod.stock + orderedItem.quantity
+          };
+        }
+        return prod;
+      });
+    });
+
+    // 2. Log purchase order liabilities onto supplier ledger balance
+    setSuppliers(prevSuppliers => {
+      return prevSuppliers.map(supp => {
+        if (supp.id === receivedPO.supplierId) {
+          const finalBal = supp.balance + receivedPO.totalAmount;
+          const entry: SupplierLedgerEntry = {
+            id: 'sl-recv-' + Date.now(),
+            date: new Date().toISOString(),
+            type: 'purchase_order',
+            amount: receivedPO.totalAmount,
+            description: `Received parts delivery check-in for Order ${receivedPO.id}`,
+            balanceAfter: finalBal
+          };
+          return {
+            ...supp,
+            balance: finalBal,
+            ledger: [...supp.ledger, entry]
+          };
+        }
+        return supp;
+      });
+    });
+
+    // 3. Mark the Outgoing PO status as Received
+    setPurchaseOrders(prevPOs => {
+      return prevPOs.map(po => po.id === receivedPO.id ? { ...po, status: 'received' as const } : po);
+    });
+
+    logActivity('receive_po', `Received Purchase Order delivery and checked in items for PO ${receivedPO.id} on behalf of "${receivedPO.supplierName}" - total liabilities increased by Rs. ${receivedPO.totalAmount.toFixed(2)}`);
+  };
+
+  // Global Actions - POS Checkout Terminal transaction settle
+  const handleExecutePOSCheckout = (
+    billedItems: CartItem[], 
+    customerId: string | null, 
+    paymentMethod: 'cash' | 'card' | 'khata',
+    tier: 'retail' | 'wholesale'
+  ) => {
+    // 1. Decrement products inventory quantities
+    setProducts(prevProducts => {
+      return prevProducts.map(prod => {
+        const cartItem = billedItems.find(item => item.product.id === prod.id);
+        if (cartItem) {
+          return {
+            ...prod,
+            stock: Math.max(0, prod.stock - cartItem.quantity)
+          };
+        }
+        return prod;
+      });
+    });
+
+    // 2. Calculations
+    const totalAmount = billedItems.reduce((acc, row) => acc + (row.sellingPrice * row.quantity), 0);
+    const totalCost = billedItems.reduce((acc, row) => acc + (row.product.costPrice * row.quantity), 0);
+    const profit = totalAmount - totalCost;
+
+    const selectedCustomer = customers.find(c => c.id === customerId);
+    const customerName = selectedCustomer ? selectedCustomer.name : 'Walk-in Customer';
+
+    // 3. Store high-level historical Sales record
+    const saleId = 'sale-' + Math.floor(100000 + Math.random() * 900000).toString();
+    const newRecord: SaleRecord = {
+      id: saleId,
+      date: new Date().toISOString(),
+      items: billedItems.map(item => ({
+        productId: item.product.id,
+        name: item.product.name,
+        quantity: item.quantity,
+        costPrice: item.product.costPrice,
+        sellingPrice: item.sellingPrice,
+        unit: item.product.unit
+      })),
+      totalAmount,
+      totalCost,
+      profit,
+      customerId,
+      customerName,
+      paymentMethod
+    };
+
+    setSales(prevSales => [...prevSales, newRecord]);
+
+    // 4. If paymentMethod is "khata" (debit purchase on credit balance record), post transaction entry
+    if (paymentMethod === 'khata' && customerId) {
+      setCustomers(prevCustomers => {
+        return prevCustomers.map(cust => {
+          if (cust.id === customerId) {
+            const finalCreditBal = cust.balance + totalAmount;
+            const entry: LedgerEntry = {
+              id: 'cl-deb-' + Date.now(),
+              date: new Date().toISOString(),
+              type: 'purchase',
+              amount: totalAmount,
+              description: `POS purchase list (Sale ID ${saleId})`,
+              balanceAfter: finalCreditBal
+            };
+            return {
+              ...cust,
+              balance: finalCreditBal,
+              ledger: [...cust.ledger, entry]
+            };
+          }
+          return cust;
+        });
+      });
+    }
+
+    logActivity('pos_checkout', `Settled POS Checkout ${saleId} of Rs. ${totalAmount.toFixed(2)} using ${paymentMethod.toUpperCase()} (customer: ${customerName}) with ${billedItems.length} items`);
+  };
+
+  // Link barcode scans from outside directly to POS Shopping bags
+  const handleSimulateScanInPOS = (scannedBarcode: string) => {
+    const product = products.find(p => p.code === scannedBarcode);
+    if (!product) return;
+
+    // Direct add onto active cart
+    const existingIndex = posCart.findIndex(item => item.product.id === product.id);
+    if (existingIndex > -1) {
+      const updated = [...posCart];
+      updated[existingIndex].quantity += 1;
+      setPosCart(updated);
+    } else {
+      setPosCart([...posCart, {
+        product,
+        quantity: 1,
+        sellingPrice: priceTier === 'wholesale' ? product.wholesalePrice : product.retailPrice
+      }]);
+    }
+  };
+
+  // Quick PO from low stock alerts drawer
+  const handleQuickRestockPO = (lowProduct: Product) => {
+    // Open PO Draft with that item prefilled
+    setPrefilledPOProductId(lowProduct.id);
+    setActiveTab('suppliers');
+  };
+
+  // Return / Refund system
+  const handleReturnPOSItem = (saleId: string, productId: string, qtyToReturn: number) => {
+    const saleIndex = sales.findIndex(s => s.id === saleId);
+    if (saleIndex === -1) return;
+    const sale = sales[saleIndex];
+    
+    const saleItemIndex = sale.items.findIndex(it => it.productId === productId);
+    if (saleItemIndex === -1) return;
+    const item = sale.items[saleItemIndex];
+    
+    if (qtyToReturn <= 0 || qtyToReturn > item.quantity) {
+      alert(language === 'ur' ? 'غلط مقدار درج کی گئی ہے!' : 'Invalid quantity to return!');
+      return;
+    }
+
+    const refundAmt = item.sellingPrice * qtyToReturn;
+    const refundCost = item.costPrice * qtyToReturn;
+
+    // 1. Update product stock
+    setProducts(prev => prev.map(p => {
+      if (p.id === productId) {
+        return { ...p, stock: p.stock + qtyToReturn };
+      }
+      return p;
+    }));
+
+    // 2. Adjust Sale Record items and totals
+    const updatedSales = [...sales];
+    const targetSale = { ...updatedSales[saleIndex] };
+    
+    targetSale.items = targetSale.items.map(it => {
+      if (it.productId === productId) {
+        return { ...it, quantity: it.quantity - qtyToReturn };
+      }
+      return it;
+    }).filter(it => it.quantity > 0);
+
+    targetSale.totalAmount = Math.max(0, targetSale.totalAmount - refundAmt);
+    targetSale.totalCost = Math.max(0, targetSale.totalCost - refundCost);
+    targetSale.profit = Math.max(0, targetSale.totalAmount - targetSale.totalCost);
+
+    updatedSales[saleIndex] = targetSale;
+    setSales(updatedSales);
+
+    // 3. For Khata, update customer balance
+    if (sale.paymentMethod === 'khata' && sale.customerId) {
+      setCustomers(prev => prev.map(cust => {
+        if (cust.id === sale.customerId) {
+          const finalCreditBal = Math.max(0, cust.balance - refundAmt);
+          const entry = {
+            id: 'cl-ret-' + Date.now(),
+            date: new Date().toISOString(),
+            type: 'payment' as const,
+            amount: refundAmt,
+            description: `Returned ${qtyToReturn}x ${item.name} from Invoice ${saleId}`,
+            balanceAfter: finalCreditBal
+          };
+          return {
+            ...cust,
+            balance: finalCreditBal,
+            ledger: [...cust.ledger, entry]
+          };
+        }
+        return cust;
+      }));
+    }
+
+    logActivity('system', `Processed POS Return: Received back ${qtyToReturn}x "${item.name}" from Sale ${saleId}. Rs. ${refundAmt.toFixed(2)} adjusted.`);
+    alert(language === 'ur'
+      ? 'آئٹم کامیابی سے واپس کر دیا گیا ہے اور اسٹاک درست کر دیا گیا ہے۔'
+      : `Item returned successfully! Rs. ${refundAmt.toFixed(2)} refunded/credited.`
+    );
+  };
+
+  // Exchange system
+  const handleExchangePOSItem = (
+    saleId: string, 
+    returnProductId: string, 
+    qtyToReturn: number, 
+    addProductId: string, 
+    qtyToAdd: number
+  ) => {
+    const saleIndex = sales.findIndex(s => s.id === saleId);
+    if (saleIndex === -1) return;
+    const sale = sales[saleIndex];
+    
+    const returnItem = sale.items.find(it => it.productId === returnProductId);
+    if (!returnItem) return;
+
+    if (qtyToReturn <= 0 || qtyToReturn > returnItem.quantity) {
+      alert(language === 'ur' ? 'غلط مقدار درج کی گئی ہے!' : 'Invalid physical quantity to return!');
+      return;
+    }
+
+    const replacementProduct = products.find(p => p.id === addProductId);
+    if (!replacementProduct) {
+      alert(language === 'ur' ? 'پروڈکٹ انوینٹری میں نہیں ملی!' : 'Replacement product not found in stock!');
+      return;
+    }
+
+    if (replacementProduct.stock < qtyToAdd) {
+      alert(language === 'ur' ? 'متبادل پروڈکٹ کا اسٹاک کافی نہیں ہے!' : 'Insufficient stock for exchange replacement!');
+      return;
+    }
+
+    const returnCredit = returnItem.sellingPrice * qtyToReturn;
+    const returnCostCredit = returnItem.costPrice * qtyToReturn;
+
+    const addPrice = sale.paymentMethod === 'khata' && sale.customerId && customers.find(c => c.id === sale.customerId)?.isContractor
+      ? replacementProduct.wholesalePrice 
+      : replacementProduct.retailPrice;
+    const addCost = replacementProduct.costPrice;
+
+    const chargeDiff = (addPrice * qtyToAdd) - returnCredit;
+    const costDiff = (addCost * qtyToAdd) - returnCostCredit;
+
+    // 1. Update stock
+    setProducts(prev => prev.map(p => {
+      if (p.id === returnProductId && p.id === addProductId) {
+        return { ...p, stock: p.stock + qtyToReturn - qtyToAdd };
+      } else if (p.id === returnProductId) {
+        return { ...p, stock: p.stock + qtyToReturn };
+      } else if (p.id === addProductId) {
+        return { ...p, stock: p.stock - qtyToAdd };
+      }
+      return p;
+    }));
+
+    // 2. Adjust Sale Record
+    const updatedSales = [...sales];
+    const targetSale = { ...updatedSales[saleIndex] };
+
+    // Update returned item qty
+    targetSale.items = targetSale.items.map(it => {
+      if (it.productId === returnProductId) {
+        return { ...it, quantity: it.quantity - qtyToReturn };
+      }
+      return it;
+    }).filter(it => it.quantity > 0);
+
+    // Add replacement item
+    const existingReplacementIdx = targetSale.items.findIndex(it => it.productId === addProductId);
+    if (existingReplacementIdx > -1) {
+      targetSale.items[existingReplacementIdx].quantity += qtyToAdd;
+    } else {
+      targetSale.items.push({
+        productId: replacementProduct.id,
+        name: replacementProduct.name,
+        quantity: qtyToAdd,
+        costPrice: replacementProduct.costPrice,
+        sellingPrice: addPrice,
+        unit: replacementProduct.unit
+      });
+    }
+
+    targetSale.totalAmount = Math.max(0, targetSale.totalAmount + chargeDiff);
+    targetSale.totalCost = Math.max(0, targetSale.totalCost + costDiff);
+    targetSale.profit = Math.max(0, targetSale.totalAmount - targetSale.totalCost);
+
+    updatedSales[saleIndex] = targetSale;
+    setSales(updatedSales);
+
+    // 3. For Khata, update customer balance
+    if (sale.paymentMethod === 'khata' && sale.customerId) {
+      setCustomers(prev => prev.map(cust => {
+        if (cust.id === sale.customerId) {
+          const finalCreditBal = Math.max(0, cust.balance + chargeDiff);
+          const entry = {
+            id: 'cl-exch-' + Date.now(),
+            date: new Date().toISOString(),
+            type: chargeDiff >= 0 ? ('purchase' as const) : ('payment' as const),
+            amount: Math.abs(chargeDiff),
+            description: `Exchanged ${qtyToReturn}x ${returnItem.name} for ${qtyToAdd}x ${replacementProduct.name} (Invoice ${saleId})`,
+            balanceAfter: finalCreditBal
+          };
+          return {
+            ...cust,
+            balance: finalCreditBal,
+            ledger: [...cust.ledger, entry]
+          };
+        }
+        return cust;
+      }));
+    }
+
+    logActivity('system', `Processed Swap Exchange: Swapped ${qtyToReturn}x ${returnItem.name} with ${qtyToAdd}x ${replacementProduct.name} in Sale ${saleId}. Diff: Rs. ${chargeDiff.toFixed(2)}`);
+    alert(language === 'ur'
+      ? 'تبادلہ کامیابی سے مکمل ہو گیا ہے اور اسٹاک درست کر دیا گیا ہے۔'
+      : `Exchange executed successfully! Rs. ${chargeDiff.toFixed(2)} difference adjusted.`
+    );
+  };
+
+  // Customer Payment Schedule Update
+  const handleUpdateCustomerSchedule = (customerId: string, scheduleList: any[]) => {
+    setCustomers(prev => prev.map(cust => {
+      if (cust.id === customerId) {
+        return {
+          ...cust,
+          paymentSchedule: scheduleList
+        };
+      }
+      return cust;
+    }));
+  };
+
+  // Supplier PO Partial Payment Pay Hook
+  const handlePayTowardsPO = (poId: string, paymentAmount: number, note: string) => {
+    const poIndex = purchaseOrders.findIndex(p => p.id === poId);
+    if (poIndex === -1) return;
+    const po = purchaseOrders[poIndex];
+
+    const currentPaid = po.paidAmount || 0;
+    const nextPaid = currentPaid + paymentAmount;
+    if (nextPaid > po.totalAmount) {
+      alert(language === 'ur' ? 'ادائیگی کل آرڈر کی رقم سے بڑھ گئی ہے!' : 'Payment exceeds total purchase order value!');
+      return;
+    }
+
+    // 1. Update PO paidAmount
+    const updatedPOs = [...purchaseOrders];
+    updatedPOs[poIndex] = {
+      ...po,
+      paidAmount: nextPaid
+    };
+    setPurchaseOrders(updatedPOs);
+
+    // 2. Reduce supplier outstanding payable
+    setSuppliers(prev => prev.map(supp => {
+      if (supp.id === po.supplierId) {
+        const revisedBalance = Math.max(0, supp.balance - paymentAmount);
+        const entry = {
+          id: 'spl-pay-' + Date.now(),
+          date: new Date().toISOString(),
+          type: 'payment' as const,
+          amount: paymentAmount,
+          description: `Partial payment on PO ${poId}: ${note}`,
+          balanceAfter: revisedBalance
+        };
+        return {
+          ...supp,
+          balance: revisedBalance,
+          ledger: [...supp.ledger, entry]
+        };
+      }
+      return supp;
+    }));
+
+    logActivity('pay_supplier', `Disbursed partial installment of Rs. ${paymentAmount.toFixed(2)} towards PO ${poId} - Details: ${note}`);
+    alert(language === 'ur'
+      ? 'ادائیگی کامیابی سے تسلیم کی گئی اور سپلائر لیجر میں شامل کی گئی ہے۔'
+      : `Partial payment of Rs. ${paymentAmount.toFixed(2)} posted towards PO ${poId} successfully.`
+    );
+  };
+
+  // Supplier PO Payment Schedule Update
+  const handleUpdatePOSchedule = (poId: string, scheduleList: any[]) => {
+    setPurchaseOrders(prev => prev.map(po => {
+      if (po.id === poId) {
+        return {
+          ...po,
+          paymentSchedule: scheduleList
+        };
+      }
+      return po;
+    }));
+  };
+
+  // Stockout notifications length helper
+  const redAlertStockCounts = products.filter(p => p.stock <= p.threshold).length;
+
+  if (!currentUser) {
+    return (
+      <LoginScreen 
+        onLoginSuccess={(name, role) => setCurrentUser({ username: name, role })}
+        lang={language}
+        onLanguageChange={(l) => setLanguage(l)}
+      />
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row font-sans" dir={language === 'ur' ? 'rtl' : 'ltr'}>
+      
+      {/* Dynamic Nav Sidebar Column */}
+      <aside className="w-full md:w-60 bg-slate-900 text-white flex flex-col z-20 shrink-0 border-r border-slate-800">
+        
+        {/* Brand logo header - Nizami Hardware style */}
+        <div className="p-6 flex items-center gap-3 border-b border-slate-800 bg-slate-900/50">
+          <div className="w-8 h-8 bg-blue-600 rounded flex items-center justify-center font-bold text-white shrink-0 shadow-sm">
+            NH
+          </div>
+          <div>
+            <h2 className="text-xs font-bold leading-tight uppercase tracking-wider text-white">{t.appName}</h2>
+            <p className="text-[10px] text-slate-400 font-sans tracking-wide">{t.appSubtitle}</p>
+          </div>
+        </div>
+
+        {/* Tab Links divided into elegant sections */}
+        <nav className="flex-1 py-4 px-3 space-y-1 select-none overflow-y-auto">
+          <div className="text-slate-500 px-3 py-2 text-[10px] uppercase font-bold tracking-widest">
+            {t.mainOps}
+          </div>
+
+          {/* Dash */}
+          <button
+            onClick={() => setActiveTab('dashboard')}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded text-xs font-medium tracking-wide transition-all cursor-pointer ${
+              activeTab === 'dashboard' 
+                ? 'bg-blue-600 text-white font-semibold' 
+                : 'text-slate-400 hover:text-white hover:bg-slate-850'
+            }`}
+          >
+            <span className={`w-1.5 h-1.5 rounded-full shrink-0 transition-colors ${
+              activeTab === 'dashboard' ? 'bg-white' : 'bg-slate-600'
+            }`} />
+            <LayoutDashboard className="w-4 h-4 text-slate-400 shrink-0" />
+            {t.dashboard}
+          </button>
+
+          {/* POS Terminal */}
+          <button
+            onClick={() => setActiveTab('pos')}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded text-xs font-medium tracking-wide transition-all cursor-pointer ${
+              activeTab === 'pos' 
+                ? 'bg-blue-600 text-white font-semibold' 
+                : 'text-slate-400 hover:text-white hover:bg-slate-850'
+            }`}
+          >
+            <span className={`w-1.5 h-1.5 rounded-full shrink-0 transition-colors ${
+              activeTab === 'pos' ? 'bg-white' : 'bg-slate-600'
+            }`} />
+            <Receipt className="w-4 h-4 text-slate-400 shrink-0" />
+            {t.pos}
+            {posCart.length > 0 ? (
+              <span className="ml-auto bg-amber-500 text-white font-mono text-[9px] px-2 py-0.5 rounded-full font-bold">
+                {posCart.length}
+              </span>
+            ) : null}
+          </button>
+
+          {/* Advanced Stock Inventory */}
+          <button
+            onClick={() => setActiveTab('inventory')}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded text-xs font-medium tracking-wide transition-all cursor-pointer ${
+              activeTab === 'inventory' 
+                ? 'bg-blue-600 text-white font-semibold' 
+                : 'text-slate-400 hover:text-white hover:bg-slate-850'
+            }`}
+          >
+            <span className={`w-1.5 h-1.5 rounded-full shrink-0 transition-colors ${
+              activeTab === 'inventory' ? 'bg-white' : 'bg-slate-600'
+            }`} />
+            <Boxes className="w-4 h-4 text-slate-400 shrink-0" />
+            {t.inventory}
+            {redAlertStockCounts > 0 && (
+              <span className="ml-auto bg-rose-600/15 text-rose-400 border border-rose-500/20 text-[9px] px-2 py-0.5 rounded-full font-bold font-mono">
+                {redAlertStockCounts} {t.alertSuffix}
+              </span>
+            )}
+          </button>
+
+          <div className="text-slate-500 px-3 py-2 mt-4 text-[10px] uppercase font-bold tracking-widest">
+            {t.financeSec}
+          </div>
+
+          {/* Accounts Credit Khata */}
+          <button
+            onClick={() => setActiveTab('khata')}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded text-xs font-medium tracking-wide transition-all cursor-pointer ${
+              activeTab === 'khata' 
+                ? 'bg-blue-600 text-white font-semibold' 
+                : 'text-slate-400 hover:text-white hover:bg-slate-850'
+            }`}
+          >
+            <span className={`w-1.5 h-1.5 rounded-full shrink-0 transition-colors ${
+              activeTab === 'khata' ? 'bg-white' : 'bg-slate-600'
+            }`} />
+            <NotebookPen className="w-4 h-4 text-slate-400 shrink-0" />
+            {t.khata}
+          </button>
+
+          {/* Supplier PO cargo */}
+          <button
+            onClick={() => setActiveTab('suppliers')}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded text-xs font-medium tracking-wide transition-all cursor-pointer ${
+              activeTab === 'suppliers' 
+                ? 'bg-blue-600 text-white font-semibold' 
+                : 'text-slate-400 hover:text-white hover:bg-slate-850'
+            }`}
+          >
+            <span className={`w-1.5 h-1.5 rounded-full shrink-0 transition-colors ${
+              activeTab === 'suppliers' ? 'bg-white' : 'bg-slate-600'
+            }`} />
+            <Warehouse className="w-4 h-4 text-slate-400 shrink-0" />
+            {t.suppliers}
+          </button>
+
+          {/* Reports Profit Audit */}
+          <button
+            onClick={() => setActiveTab('reports')}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded text-xs font-medium tracking-wide transition-all cursor-pointer ${
+              activeTab === 'reports' 
+                ? 'bg-blue-600 text-white font-semibold' 
+                : 'text-slate-400 hover:text-white hover:bg-slate-850'
+            }`}
+          >
+            <span className={`w-1.5 h-1.5 rounded-full shrink-0 transition-colors ${
+              activeTab === 'reports' ? 'bg-white' : 'bg-slate-600'
+            }`} />
+            <LineChart className="w-4 h-4 text-slate-400 shrink-0" />
+            {t.reports}
+          </button>
+
+          {/* Staff Manager and Activity logs (Admin Manager only) */}
+          {currentUser.role === 'admin' && (
+            <button
+              onClick={() => setActiveTab('staff')}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded text-xs font-medium tracking-wide transition-all cursor-pointer ${
+                activeTab === 'staff' 
+                  ? 'bg-blue-600 text-white font-semibold' 
+                  : 'text-slate-400 hover:text-white hover:bg-slate-850'
+              }`}
+            >
+              <span className={`w-1.5 h-1.5 rounded-full shrink-0 transition-colors ${
+                activeTab === 'staff' ? 'bg-white' : 'bg-slate-600'
+              }`} />
+              <ShieldAlert className="w-4 h-4 text-slate-400 shrink-0" />
+              {t.staffLogs}
+            </button>
+          )}
+        </nav>
+
+        {/* User Session Info Card */}
+        <div className="p-3 mx-3 mb-2 bg-slate-950 border border-slate-850 rounded-lg">
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 bg-blue-600/20 text-blue-400 rounded-full flex items-center justify-center font-bold text-xs ring-1 ring-blue-500/20 shrink-0">
+              {currentUser.username[0]}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-[11px] font-bold text-slate-100 truncate leading-none">{currentUser.username}</p>
+              <span className="text-[9px] font-mono text-slate-400 bg-slate-900 px-1 py-0.2 rounded inline-block uppercase mt-1">
+                {currentUser.role === 'admin' ? t.adminRole : t.cashierRole}
+              </span>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-2 gap-1.5 mt-2 pt-2 border-t border-slate-800">
+            {/* Lang Shift */}
+            <button
+              onClick={() => setLanguage(language === 'en' ? 'ur' : 'en')}
+              className="px-1 py-1 text-[9px] flex items-center justify-center gap-1.5 bg-slate-900 text-slate-300 hover:bg-slate-805 hover:text-white rounded border border-slate-800 cursor-pointer transition select-none"
+            >
+              <Globe className="w-3 h-3 text-blue-400" />
+              <span>{language === 'en' ? 'اردو' : 'EN'}</span>
+            </button>
+            {/* Logout */}
+            <button
+              onClick={() => {
+                setCurrentUser(null);
+                localStorage.removeItem('hw_current_user');
+              }}
+              className="px-1 py-1 text-[9px] flex items-center justify-center gap-1.5 bg-red-950/40 text-red-400 hover:bg-red-900/40 hover:text-white rounded border border-red-900/30 cursor-pointer transition select-none"
+            >
+              <LogOut className="w-3 h-3 text-red-400" />
+              <span>{language === 'en' ? 'Logout' : 'خروج'}</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Dynamic Low Stock alerts panel at the footer of sidebar */}
+        <div className="p-4 border-t border-slate-800 bg-slate-900/50">
+          <div className="bg-red-950/40 border border-red-900/40 p-3 rounded-lg">
+            <p className="text-[10px] text-red-400 font-bold mb-1 tracking-wider uppercase">{t.lowStockAlerts} ({redAlertStockCounts})</p>
+            {products.filter(p => p.stock <= p.threshold).slice(0, 2).map(p => (
+              <p className="text-[10px] text-red-200/90 truncate" key={p.id}>
+                - {p.name}
+              </p>
+            ))}
+            {redAlertStockCounts > 2 && (
+              <p className="text-[9px] text-slate-450 mt-1 italic">+{redAlertStockCounts - 2} {t.itemsCritical}</p>
+            )}
+            {redAlertStockCounts === 0 && (
+              <p className="text-[10px] text-emerald-400">{t.allStockOptimal}</p>
+            )}
+          </div>
+        </div>
+      </aside>
+
+      {/* Main Panel Viewport */}
+      <main className="flex-1 flex flex-col min-w-0">
+        
+        {/* Top Header bar */}
+        <header className="h-16 bg-white border-b border-slate-100 flex items-center justify-between px-6 shrink-0 relative z-10 shadow-3xs">
+          
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] bg-slate-100 uppercase tracking-widest text-slate-500 font-bold px-2.5 py-1 rounded">
+              {t.activeLabel}
+            </span>
+            <span className="text-xs font-bold text-slate-800 capitalize">
+              {activeTab === 'khata' 
+                ? (language === 'ur' ? 'اکاؤنٹس لیجر (ادھار کھاتہ بک)' : 'Accounts Ledger (Khata Book)')
+                : activeTab === 'dashboard' ? (language === 'ur' ? 'کنٹرول ہب' : 'Control Hub')
+                : activeTab === 'pos' ? (language === 'ur' ? 'کیش ڈیسک پی او ایس' : 'POS Cash Desk')
+                : activeTab === 'inventory' ? (language === 'ur' ? 'اسٹاک انوینٹری گودام' : 'Stock Inventory')
+                : activeTab === 'suppliers' ? (language === 'ur' ? 'سپلائر آرڈرز اور کارگو' : 'Supplier Cargo')
+                : activeTab === 'staff' ? (language === 'ur' ? 'کیشئیرز اور سیکیورٹی لاگز' : 'Cashiers & Security Logs')
+                : (language === 'ur' ? 'منافع اور آڈٹ رپورٹ' : 'Markup Profit Audits')
+              } {t.workspace}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-4">
+            {/* Stock Notification flag summary */}
+            {redAlertStockCounts > 0 && (
+              <div className="flex items-center gap-1.5 p-1.5 px-3 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded text-amber-800 text-[10px] font-semibold transition">
+                <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                <span>{redAlertStockCounts} {t.lowStockLevels}</span>
+              </div>
+            )}
+
+            {/* General Date Indicator */}
+            <span className="text-xs font-mono font-medium text-slate-400 hidden sm:block">
+              {t.timeLabel}: {new Date().toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
+            </span>
+          </div>
+        </header>
+
+        {/* Scrollable content register container */}
+        <div className="flex-1 overflow-y-auto p-4 md:p-6 pb-20 max-w-7xl w-full mx-auto">
+          {activeTab === 'dashboard' && (
+            <DashboardTab
+              products={products}
+              customers={customers}
+              sales={sales}
+              purchaseOrders={purchaseOrders}
+              lang={language}
+              onNavigate={(tab) => {
+                setActiveTab(tab);
+                if (tab === 'pos') {
+                  // highlight scanning simulator options
+                }
+              }}
+              onQuickRestock={handleQuickRestockPO}
+              onBackup={handleExportBackup}
+              onRestore={handleImportBackup}
+            />
+          )}
+
+          {activeTab === 'inventory' && (
+            <InventoryTab
+              products={products}
+              onAddProduct={handleAddProduct}
+              onBulkAddProducts={handleBulkAddProducts}
+              onUpdateProduct={handleUpdateProduct}
+              onDeleteProduct={handleDeleteProduct}
+              onSimulateScanInPOS={handleSimulateScanInPOS}
+            />
+          )}
+
+          {activeTab === 'pos' && (
+            <POSTab
+              products={products}
+              customers={customers}
+              activeCart={posCart}
+              setActiveCart={setPosCart}
+              heldCarts={heldCarts}
+              setHeldCarts={setHeldCarts}
+              priceTier={priceTier}
+              setPriceTier={setPriceTier}
+              selectedCustomerId={selectedCustomerId}
+              setSelectedCustomerId={setSelectedCustomerId}
+              onCheckout={handleExecutePOSCheckout}
+              lang={language}
+              storeSettings={storeSettings}
+            />
+          )}
+
+          {activeTab === 'khata' && (
+            <KhataTab
+              customers={customers}
+              onAddCustomer={handleAddCustomer}
+              onReceivePayment={handleReceiveKhataPayment}
+              onUpdateSchedule={handleUpdateCustomerSchedule}
+              lang={language}
+            />
+          )}
+
+          {activeTab === 'suppliers' && (
+            <SupplierTab
+              suppliers={suppliers}
+              purchaseOrders={purchaseOrders}
+              products={products}
+              onAddSupplier={handleAddSupplier}
+              onPaySupplier={handlePaySupplier}
+              onCreatePO={handleCreatePurchaseOrder}
+              onUpdatePOStatus={handleUpdatePOStatus}
+              onReceivePOArticles={handleReceivePurchaseOrderArticles}
+              prefilledProductId={prefilledPOProductId}
+              clearPrefilledProductId={() => setPrefilledPOProductId(null)}
+              onPayTowardsPO={handlePayTowardsPO}
+              onUpdatePOSchedule={handleUpdatePOSchedule}
+            />
+          )}
+
+          {activeTab === 'reports' && (
+            <ReportsTab
+              sales={sales}
+              products={products}
+              expenses={expenses}
+              onAddExpense={handleAddExpense}
+              onDeleteExpense={handleDeleteExpense}
+              lang={language}
+              storeSettings={storeSettings}
+              onReturnPOSItem={handleReturnPOSItem}
+              onExchangePOSItem={handleExchangePOSItem}
+              customers={customers}
+            />
+          )}
+
+          {activeTab === 'staff' && currentUser?.role === 'admin' && (
+            <StaffTab
+              users={users}
+              auditLogs={auditLogs}
+              onAddUser={handleAddUser}
+              onDeleteUser={handleDeleteUser}
+              lang={language}
+            />
+          )}
+        </div>
+      </main>
+    </div>
+  );
+}
