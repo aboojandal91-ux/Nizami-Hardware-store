@@ -380,60 +380,51 @@ export default function DashboardTab({
             </button>
           </div>
 
-          {/* Sovereign Data Backup & Restore Hub */}
-          <div className="bg-white p-5 rounded-lg border border-slate-200 shadow-sm space-y-3.5">
-            <div className="flex items-center gap-2">
-              <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg">
-                <Database className="w-5 h-5" />
+            {/* Sovereign Data Backup & Restore Hub */}
+            <div className="bg-white p-5 rounded-lg border border-slate-200 shadow-sm space-y-3.5">
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg">
+                  <Database className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 text-xs font-sans">
+                    {lang === 'ur' ? 'ڈیٹا بیک اپ اور بحالی' : 'Sovereign Database Backup & Sync'}
+                  </h3>
+                  <p className="text-[10px] text-slate-450 font-sans">
+                    {lang === 'ur' ? 'پورے سسٹم کا بیک اپ ڈاؤن لوڈ یا ری سٹور کریں۔' : 'Export secure JSON datasets or sync to Firebase Firestore.'}
+                  </p>
+                </div>
               </div>
-              <div>
-                <h3 className="font-bold text-slate-900 text-xs font-sans">
-                  {lang === 'ur' ? 'ڈیٹا بیک اپ اور بحالی' : 'Sovereign Database Backup'}
-                </h3>
-                <p className="text-[10px] text-slate-450 font-sans">
-                  {lang === 'ur' ? 'پورے سسٹم کا بیک اپ ڈاؤن لوڈ یا ری سٹور کریں۔' : 'Export secure JSON datasets or restore former local snapshots.'}
-                </p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              <button
-                type="button"
-                onClick={onBackup}
-                className="py-2.5 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-bold rounded-xl transition cursor-pointer text-center shadow-xs flex items-center justify-center gap-1.5"
-                title={lang === 'ur' ? 'موجودہ ڈیٹا کا بیک اپ فائل ڈاؤن لوڈ کریں' : 'Download comprehensive active database JSON'}
-              >
-                <Database className="w-4 h-4" />
-                <span>{lang === 'ur' ? 'بیک اپ فائل' : 'Create Backup'}</span>
-              </button>
-
-              <label
-                className="py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl border border-slate-250 transition cursor-pointer text-center flex items-center justify-center gap-1.5"
-                title={lang === 'ur' ? 'بیک اپ فائل اپلوڈ کر کے بحال کریں' : 'Upload an existing JSON backup to restore state'}
-              >
-                <Upload className="w-4 h-4" />
-                <span>{lang === 'ur' ? 'بحال کریں' : 'Restore Backup'}</span>
-                <input
-                  type="file"
-                  accept=".json"
-                  className="hidden"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (!file) return;
-                    const reader = new FileReader();
-                    reader.onload = (evt) => {
-                      const text = evt.target?.result;
-                      if (typeof text === 'string' && onRestore) {
-                        onRestore(text);
+  
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <button
+                  type="button"
+                  onClick={onBackup}
+                  className="py-2.5 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-bold rounded-xl transition cursor-pointer text-center shadow-xs flex items-center justify-center gap-1.5"
+                  title={lang === 'ur' ? 'موجودہ ڈیٹا کا بیک اپ فائل ڈاؤن لوڈ کریں' : 'Download comprehensive active database JSON'}
+                >
+                  <Database className="w-4 h-4" />
+                  <span>{lang === 'ur' ? 'بیک اپ فائل' : 'Create Backup'}</span>
+                </button>
+  
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (window.confirm("Do you want to migrate all local offline records to Firebase Cloud?")) {
+                      const { migrateLocalToFirebase } = await import('../firebaseMigration');
+                      const success = await migrateLocalToFirebase();
+                      if (success) {
+                        alert("Firebase Migration Completed! All local data is pushed to Firestore.");
                       }
-                    };
-                    reader.readAsText(file);
-                    // Reset value so same file can be loaded again
-                    e.target.value = '';
+                    }
                   }}
-                />
-              </label>
-            </div>
+                  className="py-2.5 bg-sky-100 hover:bg-sky-200 text-sky-800 font-bold rounded-xl border border-sky-200 transition cursor-pointer text-center flex items-center justify-center gap-1.5"
+                  title="Upload all local hardware data to Firebase Cloud Firestore"
+                >
+                  <Upload className="w-4 h-4" />
+                  <span>Push to Firebase</span>
+                </button>
+              </div>
             
             <p className="text-[9px] text-slate-400 font-sans italic text-center">
               {lang === 'ur' 

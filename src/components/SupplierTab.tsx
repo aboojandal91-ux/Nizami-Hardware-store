@@ -16,7 +16,8 @@ import {
   X,
   PlusCircle,
   FileSpreadsheet,
-  CalendarDays
+  CalendarDays,
+  AlertTriangle
 } from 'lucide-react';
 
 interface SupplierTabProps {
@@ -501,6 +502,16 @@ export default function SupplierTab({
                       </div>
 
                       <div className="flex items-center gap-2">
+                        {(() => {
+                          const todayStr = new Date().toISOString().split('T')[0];
+                          const hasOverdue = (po.paymentSchedule || []).some(s => s.status === 'pending' && s.dueDate <= todayStr);
+                          return hasOverdue ? (
+                            <span className="inline-flex items-center gap-1 animate-pulse bg-red-50 text-red-600 border border-red-200 text-[8px] font-extrabold px-1.5 py-0.5 rounded tracking-wider uppercase font-mono">
+                              <AlertTriangle className="w-3 h-3 text-red-600" />
+                              <span>OVERDUE</span>
+                            </span>
+                          ) : null;
+                        })()}
                         <span className={`px-2 py-0.5 text-[9px] uppercase font-mono tracking-widest border rounded shrink-0 ${getStatusStyle(po.status)}`}>
                           {po.status}
                         </span>

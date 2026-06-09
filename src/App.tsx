@@ -32,6 +32,7 @@ import SupplierTab from './components/SupplierTab';
 import ReportsTab from './components/ReportsTab';
 import StaffTab from './components/StaffTab';
 import PrintSheetPage from './components/PrintSheetPage';
+import { useFirebaseSync } from './useFirebaseSync';
 
 // Icons
 import LoginScreen from './components/LoginScreen';
@@ -117,6 +118,7 @@ export default function App() {
 
   // Navigation
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [showOverdueDetails, setShowOverdueDetails] = useState(false);
 
   // Relational Storage States
   const [products, setProducts] = useState<Product[]>(() => {
@@ -174,34 +176,42 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('hw_products', JSON.stringify(products));
   }, [products]);
+  useFirebaseSync('products', products);
 
   useEffect(() => {
     localStorage.setItem('hw_customers', JSON.stringify(customers));
   }, [customers]);
+  useFirebaseSync('customers', customers, ['ledger', 'paymentSchedule']);
 
   useEffect(() => {
     localStorage.setItem('hw_suppliers', JSON.stringify(suppliers));
   }, [suppliers]);
+  useFirebaseSync('suppliers', suppliers, ['ledger']);
 
   useEffect(() => {
     localStorage.setItem('hw_purchase_orders', JSON.stringify(purchaseOrders));
   }, [purchaseOrders]);
+  useFirebaseSync('purchaseOrders', purchaseOrders, ['paymentSchedule']);
 
   useEffect(() => {
     localStorage.setItem('hw_sales', JSON.stringify(sales));
   }, [sales]);
+  useFirebaseSync('sales', sales);
 
   useEffect(() => {
     localStorage.setItem('hw_expenses', JSON.stringify(expenses));
   }, [expenses]);
+  useFirebaseSync('expenses', expenses);
 
   useEffect(() => {
     localStorage.setItem('hw_users', JSON.stringify(users));
   }, [users]);
+  // Users are omitted from firebase sync here, as Auth is usually used.
 
   useEffect(() => {
     localStorage.setItem('hw_audit_logs', JSON.stringify(auditLogs));
   }, [auditLogs]);
+  useFirebaseSync('auditLogs', auditLogs);
 
   // Log Activity Helper
   const logActivity = (actionType: AuditLog['actionType'], details: string) => {
@@ -255,6 +265,17 @@ export default function App() {
     if (target) {
       logActivity('delete_expense', `Deleted operational expense: "${target.description}" of Rs. ${target.amount.toFixed(2)} (${target.type})`);
     }
+  };
+
+  const handleUpdateExpense = (id: string, updatedFields: Partial<Omit<Expense, 'id' | 'date'>>) => {
+    setExpenses(prev => prev.map(exp => {
+      if (exp.id === id) {
+        const after = { ...exp, ...updatedFields };
+        logActivity('add_expense', `Edited operational expense "${exp.description}" (Old: Rs. ${exp.amount.toFixed(2)}) to "${after.description}" (New: Rs. ${after.amount.toFixed(2)})`);
+        return after;
+      }
+      return exp;
+    }));
   };
 
   // Systems Integration - Secure JSON Backup & Restore Flow
@@ -878,6 +899,30 @@ export default function App() {
   // Stockout notifications length helper
   const redAlertStockCounts = products.filter(p => p.stock <= p.threshold).length;
 
+  // Overdue payment schedules calculation (due on or before today and still pending)
+  const todayStr = new Date().toISOString().split('T')[0];
+  const overdueKhataSchedules = customers.flatMap(cust => {
+    return (cust.paymentSchedule || [])
+      .filter(s => s.status === 'pending' && s.dueDate <= todayStr)
+      .map(s => ({
+        ...s,
+        customerId: cust.id,
+        customerName: cust.name
+      }));
+  });
+
+  const overduePOSchedules = purchaseOrders.flatMap(po => {
+    return (po.paymentSchedule || [])
+      .filter(s => s.status === 'pending' && s.dueDate <= todayStr)
+      .map(s => ({
+        ...s,
+        poId: po.id,
+        supplierName: po.supplierName
+      }));
+  });
+
+  const totalOverdueCount = overdueKhataSchedules.length + overduePOSchedules.length;
+
   if (!currentUser) {
     return (
       <LoginScreen 
@@ -906,136 +951,178 @@ export default function App() {
         </div>
 
         {/* Tab Links divided into elegant sections */}
-        <nav className="flex-1 py-4 px-3 space-y-1 select-none overflow-y-auto">
-          <div className="text-slate-500 px-3 py-2 text-[10px] uppercase font-bold tracking-widest">
-            {t.mainOps}
-          </div>
-
+        <nav className="flex-1 py-4 px-3 space-y-2 select-none overflow-y-auto">
           {/* Dash */}
           <button
             onClick={() => setActiveTab('dashboard')}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded text-xs font-medium tracking-wide transition-all cursor-pointer ${
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold tracking-wide transition-all duration-200 cursor-pointer ${
               activeTab === 'dashboard' 
-                ? 'bg-blue-600 text-white font-semibold' 
-                : 'text-slate-400 hover:text-white hover:bg-slate-850'
+                ? 'bg-slate-800 text-white shadow-sm shadow-indigo-900/40 border border-slate-700/60' 
+                : 'text-slate-400 hover:text-slate-100 hover:bg-slate-850'
             }`}
           >
-            <span className={`w-1.5 h-1.5 rounded-full shrink-0 transition-colors ${
-              activeTab === 'dashboard' ? 'bg-white' : 'bg-slate-600'
-            }`} />
-            <LayoutDashboard className="w-4 h-4 text-slate-400 shrink-0" />
-            {t.dashboard}
+            <div className={`p-2 rounded-lg transition-all duration-200 shrink-0 ${
+              activeTab === 'dashboard'
+                ? 'bg-gradient-to-br from-indigo-500 to-blue-600 text-white shadow-xs'
+                : 'bg-slate-800/45 text-slate-450 group-hover:text-slate-200'
+            }`}>
+              <LayoutDashboard className="w-4.5 h-4.5" />
+            </div>
+            <div className="flex flex-col items-start leading-none gap-0.5 text-left">
+              <span className="text-[11px] font-extrabold tracking-tight">{t.dashboard}</span>
+              <span className="text-[8px] text-slate-500 font-sans tracking-tight">Main Hub</span>
+            </div>
           </button>
 
           {/* POS Terminal */}
           <button
             onClick={() => setActiveTab('pos')}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded text-xs font-medium tracking-wide transition-all cursor-pointer ${
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold tracking-wide transition-all duration-200 cursor-pointer ${
               activeTab === 'pos' 
-                ? 'bg-blue-600 text-white font-semibold' 
-                : 'text-slate-400 hover:text-white hover:bg-slate-850'
+                ? 'bg-slate-800 text-white shadow-sm shadow-emerald-900/40 border border-slate-700/60' 
+                : 'text-slate-400 hover:text-slate-100 hover:bg-slate-850'
             }`}
           >
-            <span className={`w-1.5 h-1.5 rounded-full shrink-0 transition-colors ${
-              activeTab === 'pos' ? 'bg-white' : 'bg-slate-600'
-            }`} />
-            <Receipt className="w-4 h-4 text-slate-400 shrink-0" />
-            {t.pos}
-            {posCart.length > 0 ? (
-              <span className="ml-auto bg-amber-500 text-white font-mono text-[9px] px-2 py-0.5 rounded-full font-bold">
+            <div className={`p-2 rounded-lg transition-all duration-200 shrink-0 relative ${
+              activeTab === 'pos'
+                ? 'bg-gradient-to-br from-emerald-400 to-teal-600 text-white shadow-xs'
+                : 'bg-slate-800/45 text-slate-450 group-hover:text-slate-200'
+            }`}>
+              <Receipt className="w-4.5 h-4.5" />
+              {posCart.length > 0 && (
+                <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500"></span>
+                </span>
+              )}
+            </div>
+            <div className="flex flex-col items-start leading-none gap-0.5 text-left">
+              <span className="text-[11px] font-extrabold tracking-tight">{t.pos}</span>
+              <span className="text-[8px] text-slate-500 font-sans tracking-tight">
+                {posCart.length > 0 ? `${posCart.length} items in draft` : 'Cash desk'}
+              </span>
+            </div>
+            {posCart.length > 0 && (
+              <span className="ml-auto bg-amber-500 text-slate-950 font-mono text-[9px] px-1.5 py-0.5 rounded-md font-black">
                 {posCart.length}
               </span>
-            ) : null}
+            )}
           </button>
 
           {/* Advanced Stock Inventory */}
           <button
             onClick={() => setActiveTab('inventory')}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded text-xs font-medium tracking-wide transition-all cursor-pointer ${
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold tracking-wide transition-all duration-200 cursor-pointer ${
               activeTab === 'inventory' 
-                ? 'bg-blue-600 text-white font-semibold' 
-                : 'text-slate-400 hover:text-white hover:bg-slate-850'
+                ? 'bg-slate-800 text-white shadow-sm shadow-amber-900/40 border border-slate-700/60' 
+                : 'text-slate-400 hover:text-slate-100 hover:bg-slate-850'
             }`}
           >
-            <span className={`w-1.5 h-1.5 rounded-full shrink-0 transition-colors ${
-              activeTab === 'inventory' ? 'bg-white' : 'bg-slate-600'
-            }`} />
-            <Boxes className="w-4 h-4 text-slate-400 shrink-0" />
-            {t.inventory}
+            <div className={`p-2 rounded-lg transition-all duration-200 shrink-0 ${
+              activeTab === 'inventory'
+                ? 'bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-xs'
+                : 'bg-slate-800/45 text-slate-450 group-hover:text-slate-200'
+            }`}>
+              <Boxes className="w-4.5 h-4.5" />
+            </div>
+            <div className="flex flex-col items-start leading-none gap-0.5 text-left">
+              <span className="text-[11px] font-extrabold tracking-tight">{t.inventory}</span>
+              <span className="text-[8px] text-slate-500 font-sans tracking-tight">Stock Levels</span>
+            </div>
             {redAlertStockCounts > 0 && (
-              <span className="ml-auto bg-rose-600/15 text-rose-400 border border-rose-500/20 text-[9px] px-2 py-0.5 rounded-full font-bold font-mono">
-                {redAlertStockCounts} {t.alertSuffix}
+              <span className="ml-auto bg-rose-650 text-white font-mono text-[9px] px-1.5 py-0.5 rounded-md font-black">
+                {redAlertStockCounts}
               </span>
             )}
           </button>
 
-          <div className="text-slate-500 px-3 py-2 mt-4 text-[10px] uppercase font-bold tracking-widest">
-            {t.financeSec}
-          </div>
-
           {/* Accounts Credit Khata */}
           <button
             onClick={() => setActiveTab('khata')}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded text-xs font-medium tracking-wide transition-all cursor-pointer ${
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold tracking-wide transition-all duration-200 cursor-pointer ${
               activeTab === 'khata' 
-                ? 'bg-blue-600 text-white font-semibold' 
-                : 'text-slate-400 hover:text-white hover:bg-slate-850'
+                ? 'bg-slate-800 text-white shadow-sm shadow-orange-900/40 border border-slate-700/60' 
+                : 'text-slate-400 hover:text-slate-100 hover:bg-slate-850'
             }`}
           >
-            <span className={`w-1.5 h-1.5 rounded-full shrink-0 transition-colors ${
-              activeTab === 'khata' ? 'bg-white' : 'bg-slate-600'
-            }`} />
-            <NotebookPen className="w-4 h-4 text-slate-400 shrink-0" />
-            {t.khata}
+            <div className={`p-2 rounded-lg transition-all duration-200 shrink-0 ${
+              activeTab === 'khata'
+                ? 'bg-gradient-to-br from-orange-500 to-rose-600 text-white shadow-xs'
+                : 'bg-slate-800/45 text-slate-450 group-hover:text-slate-200'
+            }`}>
+              <NotebookPen className="w-4.5 h-4.5" />
+            </div>
+            <div className="flex flex-col items-start leading-none gap-0.5 text-left">
+              <span className="text-[11px] font-extrabold tracking-tight">{t.khata}</span>
+              <span className="text-[8px] text-slate-500 font-sans tracking-tight">Credit Book</span>
+            </div>
           </button>
 
           {/* Supplier PO cargo */}
           <button
             onClick={() => setActiveTab('suppliers')}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded text-xs font-medium tracking-wide transition-all cursor-pointer ${
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold tracking-wide transition-all duration-200 cursor-pointer ${
               activeTab === 'suppliers' 
-                ? 'bg-blue-600 text-white font-semibold' 
-                : 'text-slate-400 hover:text-white hover:bg-slate-850'
+                ? 'bg-slate-800 text-white shadow-sm shadow-violet-900/40 border border-slate-700/60' 
+                : 'text-slate-400 hover:text-slate-100 hover:bg-slate-850'
             }`}
           >
-            <span className={`w-1.5 h-1.5 rounded-full shrink-0 transition-colors ${
-              activeTab === 'suppliers' ? 'bg-white' : 'bg-slate-600'
-            }`} />
-            <Warehouse className="w-4 h-4 text-slate-400 shrink-0" />
-            {t.suppliers}
+            <div className={`p-2 rounded-lg transition-all duration-200 shrink-0 ${
+              activeTab === 'suppliers'
+                ? 'bg-gradient-to-br from-violet-500 to-fuchsia-600 text-white shadow-xs'
+                : 'bg-slate-800/45 text-slate-450 group-hover:text-slate-200'
+            }`}>
+              <Warehouse className="w-4.5 h-4.5" />
+            </div>
+            <div className="flex flex-col items-start leading-none gap-0.5 text-left">
+              <span className="text-[11px] font-extrabold tracking-tight">{t.suppliers}</span>
+              <span className="text-[8px] text-slate-500 font-sans tracking-tight">Cargo & PO</span>
+            </div>
           </button>
 
           {/* Reports Profit Audit */}
           <button
             onClick={() => setActiveTab('reports')}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded text-xs font-medium tracking-wide transition-all cursor-pointer ${
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold tracking-wide transition-all duration-200 cursor-pointer ${
               activeTab === 'reports' 
-                ? 'bg-blue-600 text-white font-semibold' 
+                ? 'bg-slate-800 text-white shadow-sm shadow-cyan-900/40 border border-slate-700/60' 
                 : 'text-slate-400 hover:text-white hover:bg-slate-850'
             }`}
           >
-            <span className={`w-1.5 h-1.5 rounded-full shrink-0 transition-colors ${
-              activeTab === 'reports' ? 'bg-white' : 'bg-slate-600'
-            }`} />
-            <LineChart className="w-4 h-4 text-slate-400 shrink-0" />
-            {t.reports}
+            <div className={`p-2 rounded-lg transition-all duration-200 shrink-0 ${
+              activeTab === 'reports'
+                ? 'bg-gradient-to-br from-sky-400 to-indigo-600 text-white shadow-xs'
+                : 'bg-slate-800/45 text-slate-450 group-hover:text-slate-200'
+            }`}>
+              <LineChart className="w-4.5 h-4.5" />
+            </div>
+            <div className="flex flex-col items-start leading-none gap-0.5 text-left">
+              <span className="text-[11px] font-extrabold tracking-tight">{t.reports}</span>
+              <span className="text-[8px] text-slate-500 font-sans tracking-tight">Profits & Swaps</span>
+            </div>
           </button>
 
           {/* Staff Manager and Activity logs (Admin Manager only) */}
           {currentUser.role === 'admin' && (
             <button
               onClick={() => setActiveTab('staff')}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded text-xs font-medium tracking-wide transition-all cursor-pointer ${
+              className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold tracking-wide transition-all duration-200 cursor-pointer ${
                 activeTab === 'staff' 
-                  ? 'bg-blue-600 text-white font-semibold' 
+                  ? 'bg-slate-800 text-white shadow-sm shadow-rose-900/40 border border-slate-700/60' 
                   : 'text-slate-400 hover:text-white hover:bg-slate-850'
               }`}
             >
-              <span className={`w-1.5 h-1.5 rounded-full shrink-0 transition-colors ${
-                activeTab === 'staff' ? 'bg-white' : 'bg-slate-600'
-              }`} />
-              <ShieldAlert className="w-4 h-4 text-slate-400 shrink-0" />
-              {t.staffLogs}
+              <div className={`p-2 rounded-lg transition-all duration-200 shrink-0 ${
+                activeTab === 'staff'
+                  ? 'bg-gradient-to-br from-rose-500 to-pink-600 text-white shadow-xs'
+                  : 'bg-slate-800/45 text-slate-450 group-hover:text-slate-200'
+              }`}>
+                <ShieldAlert className="w-4.5 h-4.5" />
+              </div>
+              <div className="flex flex-col items-start leading-none gap-0.5 text-left">
+                <span className="text-[11px] font-extrabold tracking-tight">{t.staffLogs}</span>
+                <span className="text-[8px] text-slate-500 font-sans tracking-tight">Security Logs</span>
+              </div>
             </button>
           )}
         </nav>
@@ -1135,6 +1222,149 @@ export default function App() {
           </div>
         </header>
 
+        {/* OVERDUE ALERTS EXPANDABLE BANNER SECTION */}
+        {totalOverdueCount > 0 && (
+          <div className="bg-rose-50 border-b border-rose-200 animate-in slide-in-from-top duration-300">
+            <div className="max-w-7xl mx-auto px-6 py-3 flex flex-col md:flex-row md:items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="w-2.5 h-2.5 bg-red-600 rounded-full animate-ping shrink-0" />
+                <span className="text-xs font-black text-rose-950 flex items-center gap-1">
+                  <ShieldAlert className="w-4 h-4 text-red-600 shrink-0" />
+                  <span>
+                    {language === 'ur'
+                      ? `واجب الادا الرٹ: ${totalOverdueCount} ادائیگیوں کی آخری تاریخ گزر چکی ہے!`
+                      : `Overdue Alert: ${totalOverdueCount} payment schedules have exceeded their deadlines!`
+                    }
+                  </span>
+                </span>
+                
+                <div className="flex gap-1.5 text-[10px] select-none font-bold">
+                  {overdueKhataSchedules.length > 0 && (
+                    <span className="bg-rose-100 text-rose-700 px-2 py-0.5 rounded leading-none border border-rose-200">
+                      {language === 'ur' ? `کھاتہ دار: ${overdueKhataSchedules.length}` : `Khata Books: ${overdueKhataSchedules.length}`}
+                    </span>
+                  )}
+                  {overduePOSchedules.length > 0 && (
+                    <span className="bg-orange-100 text-orange-700 px-2 py-0.5 rounded leading-none border border-orange-200">
+                      {language === 'ur' ? `سپلائر آرڈرز: ${overduePOSchedules.length}` : `Suppliers/POs: ${overduePOSchedules.length}`}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowOverdueDetails(!showOverdueDetails)}
+                  className="text-[10px] font-black uppercase text-rose-700 hover:text-rose-950 bg-rose-100/50 hover:bg-rose-100 border border-rose-250 px-2.5 py-1 rounded transition select-none cursor-pointer"
+                >
+                  {showOverdueDetails 
+                    ? (language === 'ur' ? 'تفصیلات چھپائیں ▲' : 'Hide Details ▲') 
+                    : (language === 'ur' ? 'واجب الادا تفصیلات دیکھیں ▼' : 'View Overdue Details ▼')
+                  }
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (overdueKhataSchedules.length > 0) {
+                      setActiveTab('khata');
+                    } else {
+                      setActiveTab('suppliers');
+                    }
+                  }}
+                  className="text-[10px] font-black uppercase text-white bg-red-600 hover:bg-red-700 px-3 py-1 rounded transition select-none shadow-3xs cursor-pointer"
+                >
+                  {language === 'ur' ? 'ابھی حل کریں' : 'Resolve Settle'}
+                </button>
+              </div>
+            </div>
+
+            {/* EXPANDED DETAIL VIEW GRID */}
+            {showOverdueDetails && (
+              <div className="bg-rose-100/30 border-t border-rose-200 px-6 py-4 max-h-[300px] overflow-y-auto max-w-7xl mx-auto">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Column 1: Khata Accounts Overdue */}
+                  <div className="space-y-2">
+                    <h5 className="text-[11px] font-extrabold text-rose-900 uppercase tracking-widest border-b border-rose-200 pb-1">
+                      {language === 'ur' ? 'کھاتہ لیجر واجب الادا تفصیل' : 'Pending Khata Customers Overdue'}
+                    </h5>
+                    
+                    {overdueKhataSchedules.length === 0 ? (
+                      <p className="text-[10px] text-slate-400 italic">No overdue client installment plans.</p>
+                    ) : (
+                      <div className="space-y-1.5">
+                        {overdueKhataSchedules.map(sched => (
+                          <div key={sched.id} className="p-2.5 bg-white border border-rose-105 rounded-lg shadow-3xs flex justify-between items-center text-xs animate-in fade-in duration-200">
+                            <div>
+                              <div className="font-bold text-slate-900">{sched.customerName}</div>
+                              <p className="text-[10px] text-slate-500 font-medium">
+                                {sched.note || 'Overdue partial payment plan'}
+                              </p>
+                              <span className="text-[9px] font-mono text-red-600 bg-red-50 px-1.5 py-0.2 rounded font-bold">
+                                {language === 'ur' ? `آخری تاریخ: ${sched.dueDate}` : `Due: ${new Date(sched.dueDate).toLocaleDateString()}`}
+                              </span>
+                            </div>
+                            <div className="text-right space-y-1">
+                              <span className="font-extrabold text-rose-700 font-mono block">Rs. {sched.amount.toFixed(0)}</span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setActiveTab('khata');
+                                  // Can optionally set target customer state in Khata if needed
+                                }}
+                                className="text-[9px] font-black text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-2 py-0.5 rounded cursor-pointer"
+                              >
+                                {language === 'ur' ? 'کھاتہ کھولیں' : 'Open Khata'}
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Column 2: Supplier Orders Overdue */}
+                  <div className="space-y-2">
+                    <h5 className="text-[11px] font-extrabold text-amber-900 uppercase tracking-widest border-b border-rose-200 pb-1">
+                      {language === 'ur' ? 'سپلائرز واجب الادا اقساط' : 'Pending Supplier PO Overdue'}
+                    </h5>
+
+                    {overduePOSchedules.length === 0 ? (
+                      <p className="text-[10px] text-slate-400 italic">No overdue supplier installments.</p>
+                    ) : (
+                      <div className="space-y-1.5">
+                        {overduePOSchedules.map(sched => (
+                          <div key={sched.id} className="p-2.5 bg-white border border-amber-105 rounded-lg shadow-3xs flex justify-between items-center text-xs animate-in fade-in duration-200">
+                            <div>
+                              <div className="font-bold text-slate-900">{sched.supplierName}</div>
+                              <p className="text-[10px] text-slate-500 font-medium truncate max-w-[140px]">
+                                PO: {sched.poId} • {sched.note || 'Purchase Installment'}
+                              </p>
+                              <span className="text-[9px] font-mono text-orange-600 bg-orange-50 px-1.5 py-0.2 rounded font-bold">
+                                {language === 'ur' ? `آخری تاریخ: ${sched.dueDate}` : `Due: ${new Date(sched.dueDate).toLocaleDateString()}`}
+                              </span>
+                            </div>
+                            <div className="text-right space-y-1">
+                              <span className="font-extrabold text-amber-700 font-mono block font-mono">Rs. {sched.amount.toFixed(0)}</span>
+                              <button
+                                type="button"
+                                onClick={() => setActiveTab('suppliers')}
+                                className="text-[9px] font-black text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-2 py-0.5 rounded cursor-pointer"
+                              >
+                                {language === 'ur' ? 'سپلائر کھولیں' : 'Open Cargo'}
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Scrollable content register container */}
         <div className="flex-1 overflow-y-auto p-4 md:p-6 pb-20 max-w-7xl w-full mx-auto">
           {activeTab === 'dashboard' && (
@@ -1219,6 +1449,7 @@ export default function App() {
               expenses={expenses}
               onAddExpense={handleAddExpense}
               onDeleteExpense={handleDeleteExpense}
+              onEditExpense={handleUpdateExpense}
               lang={language}
               storeSettings={storeSettings}
               onReturnPOSItem={handleReturnPOSItem}

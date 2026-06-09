@@ -740,34 +740,38 @@ export default function POSTab({
 
             {/* Payment selection tabs */}
             <div className="space-y-2">
-              <span className="text-[10px] uppercase font-mono tracking-wider text-slate-400 font-semibold block mb-1">
+              <span className="text-[10px] uppercase font-mono tracking-wider text-slate-400 font-bold block mb-1">
                 Receipt Payment Schedule:
               </span>
-              <div className="grid grid-cols-3 gap-1">
+              <div className="grid grid-cols-3 gap-1.5">
                 {/* Cash */}
                 <button
                   onClick={() => setPaymentMethod('cash')}
-                  className={`p-2 rounded-lg cursor-pointer flex flex-col items-center gap-1 transition ${
+                  className={`p-3 rounded-xl cursor-pointer flex flex-col items-center justify-center gap-1.5 transition-all duration-200 border ${
                     paymentMethod === 'cash' 
-                      ? 'bg-slate-900 text-white shadow-xs' 
-                      : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+                      ? 'bg-slate-900 border-slate-900 text-white shadow-md shadow-slate-950/20 scale-[1.02]' 
+                      : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100/80 hover:border-slate-300'
                   }`}
                 >
-                  <Coins className="w-4 h-4" />
-                  <span className="text-[10px] font-bold">CASH</span>
+                  <div className={`p-1.5 rounded-full ${paymentMethod === 'cash' ? 'bg-white/10 text-emerald-400' : 'bg-slate-200/50 text-slate-600'}`}>
+                    <Coins className="w-5.5 h-5.5" />
+                  </div>
+                  <span className="text-[9px] font-black tracking-wider uppercase">{lang === 'ur' ? 'کیش' : 'CASH'}</span>
                 </button>
 
                 {/* Card */}
                 <button
                   onClick={() => setPaymentMethod('card')}
-                  className={`p-2 rounded-lg cursor-pointer flex flex-col items-center gap-1 transition ${
+                  className={`p-3 rounded-xl cursor-pointer flex flex-col items-center justify-center gap-1.5 transition-all duration-200 border ${
                     paymentMethod === 'card' 
-                      ? 'bg-slate-900 text-white shadow-xs' 
-                      : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+                      ? 'bg-slate-900 border-slate-900 text-white shadow-md shadow-slate-950/20 scale-[1.02]' 
+                      : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100/80 hover:border-slate-300'
                   }`}
                 >
-                  <CreditCard className="w-4 h-4" />
-                  <span className="text-[10px] font-bold">CARD</span>
+                  <div className={`p-1.5 rounded-full ${paymentMethod === 'card' ? 'bg-white/10 text-blue-400' : 'bg-slate-200/50 text-slate-600'}`}>
+                    <CreditCard className="w-5.5 h-5.5" />
+                  </div>
+                  <span className="text-[9px] font-black tracking-wider uppercase">{lang === 'ur' ? 'کارڈ' : 'CARD'}</span>
                 </button>
 
                 {/* Udhaar Khata (Credit) */}
@@ -779,17 +783,19 @@ export default function POSTab({
                     }
                     setPaymentMethod('khata');
                   }}
-                  className={`p-2 rounded-lg cursor-pointer flex flex-col items-center gap-1 transition ${
+                  className={`p-3 rounded-xl cursor-pointer flex flex-col items-center justify-center gap-1.5 transition-all duration-200 border ${
                     paymentMethod === 'khata' 
-                      ? 'bg-orange-600 text-white shadow-xs font-semibold' 
+                      ? 'bg-gradient-to-r from-orange-655 to-orange-600 border-transparent text-white shadow-md shadow-orange-500/25 scale-[1.02]' 
                       : !selectedCustomerId 
-                        ? 'opacity-40 bg-slate-50 text-slate-400 cursor-not-allowed'
-                        : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+                        ? 'opacity-40 bg-slate-50 border-slate-150 text-slate-400 cursor-not-allowed'
+                        : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100/80 hover:border-slate-300'
                   }`}
                   disabled={!selectedCustomerId}
                 >
-                  <Users className="w-4 h-4" />
-                  <span className="text-[10px] font-bold">UDHAAR (CREDIT)</span>
+                  <div className={`p-1.5 rounded-full ${paymentMethod === 'khata' ? 'bg-white/15 text-orange-250' : 'bg-slate-200/50 text-slate-400'}`}>
+                    <Users className="w-5.5 h-5.5" />
+                  </div>
+                  <span className="text-[9px] font-black tracking-wider uppercase">{lang === 'ur' ? 'ادھار کھاتہ' : 'CREDIT'}</span>
                 </button>
               </div>
             </div>
@@ -798,24 +804,24 @@ export default function POSTab({
             <button
               onClick={handleSettleCheckout}
               disabled={activeCart.length === 0}
-              className={`w-full text-center py-3 rounded-xl text-xs font-semibold shadow-xs flex items-center justify-center gap-2 cursor-pointer transition ${
+              className={`w-full text-center py-3.5 rounded-xl text-xs font-black shadow-md flex items-center justify-center gap-2.5 cursor-pointer transition-all scale-100 hover:scale-[1.01] active:scale-[0.99] select-none ${
                 activeCart.length === 0 
-                  ? 'bg-slate-100 text-slate-400 cursor-not-allowed' 
-                  : 'bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 text-white'
+                  ? 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200' 
+                  : 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white shadow-emerald-200'
               }`}
             >
-              <Check className="w-4.5 h-4.5" />
-              Settle & Print Ticket Price (Rs. {cartTotal.toFixed(2)})
+              <Check className="w-5 h-5 text-white animate-pulse" />
+              <span>Settle & Print Ticket (Rs. {cartTotal.toFixed(2)})</span>
             </button>
 
             {/* Hold Cart action */}
             {activeCart.length > 0 && (
               <button
                 onClick={() => setShowHoldModal(true)}
-                className="w-full text-center py-2 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-xl text-xs font-semibold transition border border-amber-100 flex items-center justify-center gap-1 cursor-pointer"
+                className="w-full text-center py-2.5 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-xl text-xs font-bold transition-all border border-amber-200 flex items-center justify-center gap-2 cursor-pointer shadow-2xs"
               >
-                <Pause className="w-4 h-4" />
-                Hold Billing Session
+                <Pause className="w-4 h-4 text-amber-600" />
+                <span>Hold Billing Session</span>
               </button>
             )}
           </div>

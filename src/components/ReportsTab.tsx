@@ -19,7 +19,15 @@ import {
   Plus,
   Trash2,
   PiggyBank,
-  Download
+  Download,
+  QrCode,
+  Pencil,
+  Undo2,
+  RefreshCw,
+  ArrowLeftRight,
+  CheckCircle2,
+  Save,
+  Eye
 } from 'lucide-react';
 
 interface ReportsTabProps {
@@ -28,6 +36,7 @@ interface ReportsTabProps {
   expenses: Expense[];
   onAddExpense: (newExpense: Omit<Expense, 'id' | 'date'>) => void;
   onDeleteExpense: (id: string) => void;
+  onEditExpense?: (id: string, updatedFields: Partial<Omit<Expense, 'id' | 'date'>>) => void;
   lang: 'en' | 'ur';
   storeSettings: StoreSettings;
   onReturnPOSItem?: (saleId: string, productId: string, qtyToReturn: number) => void;
@@ -41,6 +50,7 @@ export default function ReportsTab({
   expenses = [], 
   onAddExpense, 
   onDeleteExpense, 
+  onEditExpense,
   lang,
   storeSettings,
   onReturnPOSItem,
@@ -58,9 +68,68 @@ export default function ReportsTab({
   const [selectedExchangeProduct, setSelectedExchangeProduct] = useState<Product | null>(null);
   const [exchangeAddQty, setExchangeAddQty] = useState<number>(1);
 
+  const handleExchangeSearchChange = (val: string) => {
+    setExchangeProductSearch(val);
+    const query = val.trim();
+    if (query) {
+      // Direct scanner match: check if typed query exactly equals a product code
+      const matched = products.find(p => p.code === query);
+      if (matched) {
+        setSelectedExchangeProduct(matched);
+        setExchangeProductSearch('');
+        setExchangeAddQty(1);
+      }
+    }
+  };
+
+  const handleBarcodeSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const query = exchangeProductSearch.trim();
+    if (!query) return;
+    const matched = products.find(p => p.code === query || p.id === query || p.name.toLowerCase() === query.toLowerCase());
+    if (matched) {
+      setSelectedExchangeProduct(matched);
+      setExchangeProductSearch('');
+      setExchangeAddQty(1);
+    } else {
+      alert(lang === 'ur' 
+        ? `اس بارکوڈ / SKU "${query}" کے ساتھ کوئی پروڈکٹ نہیں ملی۔`
+        : `No product found under exact Barcode/SKU: "${query}".`
+      );
+    }
+  };
+
   const [newExpType, setNewExpType] = useState<'shop' | 'transport'>('shop');
   const [newExpDesc, setNewExpDesc] = useState('');
   const [newExpAmount, setNewExpAmount] = useState('');
+
+  // Editing Expense States
+  const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
+  const [editExpType, setEditExpType] = useState<'shop' | 'transport'>('shop');
+  const [editExpDesc, setEditExpDesc] = useState('');
+  const [editExpAmount, setEditExpAmount] = useState('');
+
+  const handleUpdateExpenseSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingExpense || !onEditExpense) return;
+    const amt = parseFloat(editExpAmount);
+    if (isNaN(amt) || amt <= 0) {
+      alert(lang === 'ur' ? 'براہ کرم درست رقم درج کریں۔' : 'Please specify a positive valid cost amount.');
+      return;
+    }
+    if (!editExpDesc.trim()) {
+      alert(lang === 'ur' ? 'براہ کرم تفصیل لکھیں۔' : 'Please provide description of expense.');
+      return;
+    }
+
+    onEditExpense(editingExpense.id, {
+      type: editExpType,
+      description: editExpDesc,
+      amount: amt
+    });
+
+    setEditingExpense(null);
+  };
 
   const handleDownloadCSV = () => {
     if (filteredExpenses.length === 0) {
@@ -616,10 +685,22 @@ export default function ReportsTab({
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-3 shrink-0">
+                    <div className="flex items-center gap-1.5 shrink-0">
                       <span className="font-mono font-bold text-xs text-slate-900 bg-white border border-slate-200 rounded px-2 py-1">
                         Rs. {exp.amount.toFixed(2)}
                       </span>
+                      <button
+                        onClick={() => {
+                          setEditingExpense(exp);
+                          setEditExpType(exp.type);
+                          setEditExpDesc(exp.description);
+                          setEditExpAmount(exp.amount.toString());
+                        }}
+                        className="p-1 px-1.5 bg-white text-slate-400 hover:text-indigo-650 hover:bg-slate-100 border border-slate-200 rounded-lg transition-colors cursor-pointer"
+                        title={lang === 'ur' ? 'ترمیم کریں' : 'Edit details'}
+                      >
+                        <Pencil className="w-4 h-4 text-slate-455" />
+                      </button>
                       <button
                         onClick={() => {
                           if (confirm(lang === 'ur' ? 'کیا آپ اس اندراج کو حذف کرنا چاہتے ہیں؟' : 'Are you sure you want to delete this expense record?')) {
@@ -702,9 +783,10 @@ export default function ReportsTab({
                     <td className="py-3.5 px-4 text-right">
                       <button
                         onClick={() => setActiveReceiptView(saleObj)}
-                        className="p-1 px-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-semibold rounded transition cursor-pointer"
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-indigo-50 hover:bg-indigo-600 text-indigo-750 hover:text-white text-[10px] sm:text-xs font-bold rounded-lg border border-indigo-200 transition-all cursor-pointer font-sans"
                       >
-                        Inspect View
+                        <Eye className="w-3.5 h-3.5 text-indigo-650 hover:text-white" />
+                        <span>{lang === 'ur' ? 'معائنہ کریں' : 'Inspect View'}</span>
                       </button>
                     </td>
                   </tr>
@@ -717,8 +799,8 @@ export default function ReportsTab({
 
       {/* Modal detail log view invoice */}
       {activeReceiptView && (
-        <div className="fixed inset-0 bg-black/45 backdrop-blur-xs flex items-center justify-center z-50">
-          <div className={`bg-white rounded-2xl w-full p-6 shadow-2xl relative animate-in fade-in zoom-in-95 duration-200 transition-all ${returnItem ? 'max-w-3xl' : 'max-w-md'}`}>
+        <div className="fixed inset-0 bg-black/45 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className={`bg-white rounded-2xl w-full p-6 shadow-2xl relative animate-in fade-in zoom-in-95 duration-200 transition-all max-h-[90vh] overflow-y-auto ${returnItem ? 'max-w-3xl' : 'max-w-md'}`}>
             <button
               onClick={() => {
                 setActiveReceiptView(null);
@@ -763,7 +845,7 @@ export default function ReportsTab({
                         <div className="text-[10px] text-slate-400 flex items-center gap-2">
                           <span>{item.quantity} items × Rs. {item.sellingPrice.toFixed(2)}</span>
                           <span className="text-[10px] text-slate-300">•</span>
-                          <div className="flex gap-1">
+                          <div className="flex items-center gap-1.5 mt-0.5">
                             <button
                               type="button"
                               onClick={() => {
@@ -774,11 +856,11 @@ export default function ReportsTab({
                                 setSelectedExchangeProduct(null);
                                 setExchangeAddQty(1);
                               }}
-                              className="text-[9px] font-extrabold text-orange-600 hover:text-orange-850 cursor-pointer uppercase tracking-wider"
+                              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-orange-50 hover:bg-orange-100 border border-orange-200 text-[9px] font-black text-orange-700 cursor-pointer transition uppercase tracking-wide leading-none select-none"
                             >
-                              Return
+                              <Undo2 className="w-2.5 h-2.5 text-orange-600" />
+                              <span>{lang === 'ur' ? 'واپسی' : 'Return'}</span>
                             </button>
-                            <span className="text-[10px] text-slate-300">|</span>
                             <button
                               type="button"
                               onClick={() => {
@@ -789,9 +871,10 @@ export default function ReportsTab({
                                 setSelectedExchangeProduct(null);
                                 setExchangeAddQty(1);
                               }}
-                              className="text-[9px] font-extrabold text-blue-600 hover:text-blue-850 cursor-pointer uppercase tracking-wider"
+                              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-[9px] font-black text-indigo-700 cursor-pointer transition uppercase tracking-wide leading-none select-none"
                             >
-                              Exchange
+                              <RefreshCw className="w-2.5 h-2.5 text-indigo-650" />
+                              <span>{lang === 'ur' ? 'تبادلہ' : 'Exchange'}</span>
                             </button>
                           </div>
                         </div>
@@ -870,20 +953,59 @@ export default function ReportsTab({
 
                       {actionType === 'exchange' && (
                         <div className="space-y-3">
-                          <div className="space-y-1">
-                            <label className="font-semibold text-slate-700 block">Search Replacement Item</label>
-                            <input
-                              type="text"
-                              placeholder="Type name or Scan Item SKU..."
-                              value={exchangeProductSearch}
-                              onChange={(e) => setExchangeProductSearch(e.target.value)}
-                              className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 focus:border-indigo-500"
-                            />
+                          <form onSubmit={handleBarcodeSearchSubmit} className="space-y-1.5">
+                            <label className="font-semibold text-slate-705 flex items-center gap-1">
+                              <QrCode className="w-3.5 h-3.5 text-indigo-600 animate-pulse" />
+                              <span>{lang === 'ur' ? 'تبادلے کا بارکوڈ اسکین کریں / تلاش کریں' : 'Scan Replacement Barcode or Search'}</span>
+                            </label>
+                            
+                            <div className="relative">
+                              <input
+                                type="text"
+                                placeholder={lang === 'ur' ? 'یہاں اسکین کریں یا نام درج کریں...' : 'Scan barcode SKU / Type keyword...'}
+                                value={exchangeProductSearch}
+                                onChange={(e) => handleExchangeSearchChange(e.target.value)}
+                                className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 font-sans pr-10 focus:border-indigo-505 focus:ring-1 focus:ring-indigo-500 outline-none"
+                                autoFocus
+                              />
+                              <div className="absolute right-3 top-3 text-slate-400">
+                                <QrCode className="w-4 h-4 text-slate-400" />
+                              </div>
+                            </div>
+                            <p className="text-[9px] text-slate-400">
+                              {lang === 'ur' ? 'براہ راست اسکینر سے گن اسکین کریں، خودکار شناخت فعال ہے، یا تلاش کرنے کے بعد Enter دبائیں۔' : 'Direct scanner gun scan supported with auto-match detection, or hit Enter to submit SKU.'}
+                            </p>
+                          </form>
+
+                          {/* Quick test scanning simulator pills */}
+                          <div className="p-2 bg-slate-100/50 rounded-lg border border-slate-200/60">
+                            <span className="text-[9px] uppercase tracking-wider font-extrabold text-slate-500 block mb-1">
+                              {lang === 'ur' ? 'بارکوڈ کِش اسکینر ٹیسٹ بکس:' : '⚡ Simulated Barcode Scanner (Click to Test Gun Scan):'}
+                            </span>
+                            <div className="flex flex-wrap gap-1">
+                              {[
+                                { name: '🔧 Wrench', code: '789012345601' },
+                                { name: '🔩 Screws', code: '789012345602' },
+                                { name: '🚰 Copper Pipe', code: '789012345603' },
+                                { name: '🧱 Cement', code: '789012345604' }
+                              ].map(sim => (
+                                <button
+                                  type="button"
+                                  key={sim.code}
+                                  onClick={() => handleExchangeSearchChange(sim.code)}
+                                  className="text-[9px] bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-350 px-2 py-1 rounded cursor-pointer transition select-none flex items-center gap-1 font-semibold"
+                                  title={`Simulate scanning barcode ${sim.code}`}
+                                >
+                                  <span>{sim.name}</span>
+                                  <span className="text-[8px] font-mono text-slate-400 bg-slate-100 px-1 rounded">{sim.code.slice(-4)}</span>
+                                </button>
+                              ))}
+                            </div>
                           </div>
 
                           {/* Matching search drop list */}
                           {exchangeProductSearch && (
-                            <div className="bg-white border border-slate-100 rounded-lg shadow-sm divide-y divide-slate-55 max-h-[120px] overflow-y-auto">
+                            <div className="bg-white border border-slate-100 rounded-lg shadow-sm divide-y divide-slate-100 max-h-[120px] overflow-y-auto">
                               {products
                                 .filter(p => p.name.toLowerCase().includes(exchangeProductSearch.toLowerCase()) || p.code.toLowerCase().includes(exchangeProductSearch.toLowerCase()))
                                 .slice(0, 5)
@@ -896,9 +1018,9 @@ export default function ReportsTab({
                                       setExchangeProductSearch('');
                                       setExchangeAddQty(1);
                                     }}
-                                    className="w-full text-left p-2 hover:bg-slate-50 transition cursor-pointer flex justify-between gap-2 text-[11px]"
+                                    className="w-full text-left p-2 hover:bg-indigo-50 transition cursor-pointer flex justify-between gap-2 text-[11px]"
                                   >
-                                    <span className="font-medium text-slate-800 truncate block">{prod.name} (SKU: {prod.code})</span>
+                                    <span className="font-semibold text-slate-800 truncate block">🔍 {prod.name} (SKU: {prod.code})</span>
                                     <span className="shrink-0 font-bold font-mono text-indigo-600">Rs. {prod.retailPrice.toFixed(0)}</span>
                                   </button>
                                 ))
@@ -906,39 +1028,77 @@ export default function ReportsTab({
                             </div>
                           )}
 
+                          {/* Visual Quick Select Catalogue Grid */}
+                          {!selectedExchangeProduct && (
+                            <div className="p-3 bg-slate-50/50 rounded-xl border border-slate-200">
+                              <span className="text-[10px] uppercase tracking-wider font-extrabold text-slate-500 flex items-center gap-1.5 mb-2">
+                                <ArrowLeftRight className="w-3.5 h-3.5 text-indigo-600" />
+                                <span>{lang === 'ur' ? 'تبادلے کے لیے پروڈکٹ کا انتخاب کریں:' : 'Or Select Replacement Product Directly:'}</span>
+                              </span>
+                              <div className="grid grid-cols-1 gap-1.5">
+                                {products.slice(0, 4).map(prod => (
+                                  <button
+                                    key={prod.id}
+                                    type="button"
+                                    onClick={() => {
+                                      setSelectedExchangeProduct(prod);
+                                      setExchangeProductSearch('');
+                                      setExchangeAddQty(1);
+                                    }}
+                                    className="w-full text-left p-2 bg-white hover:bg-indigo-50/60 border border-slate-150 hover:border-indigo-150 rounded-lg transition cursor-pointer flex justify-between items-center gap-2 text-[11px] group"
+                                  >
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      <span className="text-slate-400 group-hover:text-indigo-600 transition">
+                                        <Plus className="w-3.5 h-3.5" />
+                                      </span>
+                                      <div className="min-w-0">
+                                        <span className="font-bold text-slate-800 truncate block group-hover:text-indigo-900 transition">{prod.name}</span>
+                                        <span className="text-[9px] text-slate-400 block">{prod.category} • {lang === 'ur' ? `اسٹاک: ${prod.stock}` : `Stock: ${prod.stock}`}</span>
+                                      </div>
+                                    </div>
+                                    <span className="font-bold font-mono text-indigo-600 shrink-0 text-xs pl-1">
+                                      Rs. {prod.retailPrice.toFixed(0)}
+                                    </span>
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
                           {/* Selected exchange product detail */}
                           {selectedExchangeProduct && (
-                            <div className="p-3 bg-blue-50/40 border border-blue-100 rounded-xl space-y-2">
+                            <div className="p-3 bg-indigo-50/30 border border-indigo-100 rounded-xl space-y-3 shadow-sm animate-in fade-in zoom-in-95 duration-150">
                               <div className="flex justify-between gap-1 items-start">
-                                <div>
-                                  <span className="text-[9px] text-blue-600 font-bold uppercase block">Replacement product</span>
-                                  <span className="font-bold text-slate-800 text-[11px] block leading-snug">{selectedExchangeProduct.name}</span>
+                                <div className="space-y-0.5">
+                                  <span className="text-[9px] text-indigo-600 font-bold uppercase block tracking-wider">Replacement product</span>
+                                  <span className="font-bold text-slate-850 text-[11px] block leading-snug">{selectedExchangeProduct.name}</span>
                                   <span className="text-[10px] text-slate-500 font-mono block">Available Stock: {selectedExchangeProduct.stock} unit(s)</span>
                                 </div>
                                 <button
                                   type="button"
                                   onClick={() => setSelectedExchangeProduct(null)}
-                                  className="text-[10px] text-slate-400 hover:text-red-500 cursor-pointer"
+                                  className="text-[10px] text-rose-600 hover:text-rose-800 bg-rose-50 hover:bg-rose-100 border border-rose-200 px-2 py-0.5 rounded-md font-bold transition select-none flex items-center gap-1 cursor-pointer"
                                 >
-                                  Reset
+                                  <X className="w-3 h-3 text-rose-500" />
+                                  <span>{lang === 'ur' ? 'ری سیٹ' : 'Reset'}</span>
                                 </button>
                               </div>
 
                               <div className="space-y-1">
-                                <label className="text-[10px] font-bold text-slate-655 block">Replacement Quantity</label>
+                                <label className="text-[10px] font-bold text-slate-650 block">Replacement Quantity</label>
                                 <input
                                   type="number"
                                   min={1}
                                   max={selectedExchangeProduct.stock}
                                   value={exchangeAddQty}
                                   onChange={(e) => setExchangeAddQty(Math.min(selectedExchangeProduct.stock, Math.max(1, parseInt(e.target.value) || 1)))}
-                                  className="w-20 bg-white border border-slate-200 rounded p-1 font-bold font-mono text-xs focus:ring-1 focus:ring-blue-500"
+                                  className="w-24 bg-white border border-slate-200 rounded p-1.5 font-bold font-mono text-xs focus:ring-1 focus:ring-indigo-500 outline-none"
                                 />
                               </div>
 
                               {/* Cash difference calculation */}
-                              <div className="pt-2 border-t border-blue-100/30 flex justify-between items-center text-[11px]">
-                                <span className="text-slate-500">Net exchange diff:</span>
+                              <div className="pt-2 border-t border-indigo-100/30 flex justify-between items-center text-[11px] bg-white/50 p-2 rounded-lg border border-slate-100">
+                                <span className="text-slate-500 font-medium">Net exchange diff:</span>
                                 {(() => {
                                   const addPrice = activeReceiptView.paymentMethod === 'khata' && customers?.find(c => c.id === activeReceiptView.customerId)?.isContractor
                                     ? selectedExchangeProduct.wholesalePrice 
@@ -946,11 +1106,35 @@ export default function ReportsTab({
                                   
                                   const diff = (exchangeAddQty * addPrice) - (returnQty * returnItem.sellingPrice);
                                   return (
-                                    <span className={`font-black font-mono ${diff >= 0 ? 'text-red-655' : 'text-emerald-700'}`}>
+                                    <span className={`font-extrabold font-mono text-[11px] ${diff >= 0 ? 'text-red-650' : 'text-emerald-700'}`}>
                                       {diff > 0 ? `Client Pays Rs. ${diff.toFixed(2)}` : diff < 0 ? `Refund Client Rs. ${Math.abs(diff).toFixed(2)}` : 'Even Swap (Rs. 0.00)'}
                                     </span>
                                   );
                                 })()}
+                              </div>
+
+                              {/* DIRECT INTERACTIVE INSTANT SAVE OPTION IN CARD */}
+                              <div className="pt-2">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (onExchangePOSItem && selectedExchangeProduct) {
+                                      onExchangePOSItem(
+                                        activeReceiptView.id,
+                                        returnItem.productId,
+                                        returnQty,
+                                        selectedExchangeProduct.id,
+                                        exchangeAddQty
+                                      );
+                                    }
+                                    setReturnItem(null);
+                                    setActiveReceiptView(null);
+                                  }}
+                                  className="w-full py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white font-extrabold rounded-lg transition-all text-xs flex items-center justify-center gap-2 cursor-pointer shadow-md shadow-indigo-100 select-none scale-100 hover:scale-[1.01] active:scale-[0.99]"
+                                >
+                                  <Save className="w-4 h-4 text-white animate-pulse" />
+                                  <span>{lang === 'ur' ? 'تبادلہ شیٹ محفوظ کریں' : 'Save & Close Exchange'}</span>
+                                </button>
                               </div>
                             </div>
                           )}
@@ -960,7 +1144,7 @@ export default function ReportsTab({
                   </div>
 
                   {/* Submit operational actions */}
-                  <div className="pt-2">
+                  <div className="pt-2 border-t border-slate-100 mt-2">
                     {actionType === 'return' ? (
                       <button
                         type="button"
@@ -971,9 +1155,10 @@ export default function ReportsTab({
                           setReturnItem(null);
                           setActiveReceiptView(null);
                         }}
-                        className="w-full py-2.5 bg-orange-600 hover:bg-orange-700 text-white font-bold rounded-lg transition text-xs shadow-xs cursor-pointer text-center block"
+                        className="w-full py-3 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-750 hover:to-amber-755 text-white font-extrabold rounded-xl transition-all text-xs shadow-lg shadow-orange-100 flex items-center justify-center gap-2 cursor-pointer scale-100 hover:scale-[1.01] active:scale-[0.99] select-none"
                       >
-                        Refund & Adjust Order
+                        <Undo2 className="w-4 h-4 text-white" />
+                        <span>{lang === 'ur' ? 'مقدار واپس کریں اور بل محفوظ کریں' : 'Refund & Adjust Invoice'}</span>
                       </button>
                     ) : (
                       <button
@@ -992,15 +1177,133 @@ export default function ReportsTab({
                           setReturnItem(null);
                           setActiveReceiptView(null);
                         }}
-                        className={`w-full py-2.5 font-bold rounded-lg transition text-xs select-none block text-center ${selectedExchangeProduct ? 'bg-indigo-650 hover:bg-indigo-750 text-white cursor-pointer' : 'bg-slate-100 text-slate-400 cursor-not-allowed'}`}
+                        className={`w-full py-3 font-extrabold rounded-xl transition-all text-xs flex items-center justify-center gap-2 select-none shadow-md ${
+                          selectedExchangeProduct 
+                            ? 'bg-gradient-to-r from-indigo-600 to-indigo-750 text-white hover:from-indigo-750 hover:to-indigo-850 cursor-pointer shadow-indigo-100 scale-100 hover:scale-[1.01] active:scale-[0.99]' 
+                            : 'bg-slate-150 text-slate-400 border border-slate-200 cursor-not-allowed'
+                        }`}
                       >
-                        Execute Swap Exchange
+                        {selectedExchangeProduct ? (
+                          <>
+                            <CheckCircle2 className="w-4 h-4 text-white animate-pulse" />
+                            <span>{lang === 'ur' ? 'تبادلہ شیٹ محفوظ کریں' : 'Execute & Save Swap Exchange'}</span>
+                          </>
+                        ) : (
+                          <>
+                            <Save className="w-4 h-4 text-slate-400" />
+                            <span>{lang === 'ur' ? 'تبادلے کا انتخاب کریں' : 'Choose Exchange Item to Save'}</span>
+                          </>
+                        )}
                       </button>
                     )}
                   </div>
                 </div>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Expense Modal */}
+      {editingExpense && (
+        <div className="fixed inset-0 bg-black/45 backdrop-blur-xs flex items-center justify-center z-50 animate-in fade-in duration-100">
+          <div className="bg-white rounded-xl p-5 w-full max-w-sm shadow-xl relative animate-in fade-in zoom-in-95 duration-150">
+            <button
+              onClick={() => setEditingExpense(null)}
+              className="absolute right-4 top-4 text-slate-400 hover:text-slate-600 cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <h4 className="font-bold text-slate-900 text-sm mb-1">
+              {lang === 'ur' ? 'اخراجات میں ترمیم کریں' : 'Edit Cost / Expense'}
+            </h4>
+            <p className="text-xs text-slate-500 mb-4 block">
+              {lang === 'ur' 
+                ? 'کاروباری اخراجات یا گاڑی کرایہ کی تفصیل تبدیل کریں' 
+                : 'Update general shop cost or transport carriage details.'
+              }
+            </p>
+
+            <form onSubmit={handleUpdateExpenseSubmit} className="space-y-4 text-xs select-none">
+              <div className="space-y-1">
+                <label className="font-semibold text-slate-700 block mb-1">
+                  {lang === 'ur' ? 'اخراجات کی قسم' : 'Cost Category / Type'}
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditExpType('shop')}
+                    className={`py-2 px-3 rounded-lg border text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                      editExpType === 'shop'
+                        ? 'bg-rose-50 border-rose-350 text-rose-700'
+                        : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                    }`}
+                  >
+                    <Store className="w-4 h-4" />
+                    <span>{lang === 'ur' ? 'دکان خرچہ' : 'Shop Cost'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditExpType('transport')}
+                    className={`py-2 px-3 rounded-lg border text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                      editExpType === 'transport'
+                        ? 'bg-amber-50 border-amber-305 text-amber-800'
+                        : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                    }`}
+                  >
+                    <Truck className="w-4 h-4" />
+                    <span>{lang === 'ur' ? 'ٹرانسپورٹ' : 'Transport'}</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="font-semibold text-slate-700 block">
+                  {lang === 'ur' ? 'تفصیل' : 'Description'}
+                </label>
+                <input
+                  type="text"
+                  placeholder={lang === 'ur' ? 'مثال کے طور پر دکان کا کرایہ، بجلی بل، مزدوری' : 'e.g., Electric bill, transport fuel...'}
+                  value={editExpDesc}
+                  onChange={(e) => setEditExpDesc(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-250 rounded-lg p-2.5 focus:border-indigo-500 outline-none"
+                  required
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="font-semibold text-slate-700 block">
+                  {lang === 'ur' ? 'رقم (Rs.)' : 'Amount (Rs.)'}
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  placeholder="e.g., 5500"
+                  value={editExpAmount}
+                  onChange={(e) => setEditExpAmount(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-250 rounded-lg p-2.5 focus:border-indigo-500 font-mono font-bold outline-none text-slate-900"
+                  required
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingExpense(null)}
+                  className="px-4 py-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 cursor-pointer font-semibold"
+                >
+                  {lang === 'ur' ? 'منسوخ کریں' : 'Cancel'}
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg cursor-pointer shadow-xs transition"
+                >
+                  {lang === 'ur' ? 'محفوظ کریں' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

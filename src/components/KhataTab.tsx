@@ -355,7 +355,19 @@ export default function KhataTab({
                   }`}
                 >
                   <div className="space-y-0.5 max-w-[150px]">
-                    <span className="text-slate-900 font-semibold block truncate">{cust.name}</span>
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className="text-slate-900 font-semibold block truncate">{cust.name}</span>
+                      {(() => {
+                        const todayStr = new Date().toISOString().split('T')[0];
+                        const overdue = (cust.paymentSchedule || []).some(s => s.status === 'pending' && s.dueDate <= todayStr);
+                        return overdue ? (
+                          <span className="inline-flex items-center gap-0.5 animate-pulse bg-red-50 text-red-600 font-extrabold text-[8px] px-1 py-0.2 rounded border border-red-200 shrink-0 uppercase tracking-widest" title="OVERDUE installment schedule warning">
+                            <CircleAlert className="w-2.5 h-2.5" />
+                            <span>{lang === 'ur' ? 'واجب الادا' : 'Overdue'}</span>
+                          </span>
+                        ) : null;
+                      })()}
+                    </div>
                     <span className="text-[10px] font-mono text-slate-400">{cust.phone}</span>
                   </div>
                   <div className="text-right">
