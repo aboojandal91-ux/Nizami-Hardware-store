@@ -32,6 +32,7 @@ import SupplierTab from './components/SupplierTab';
 import ReportsTab from './components/ReportsTab';
 import StaffTab from './components/StaffTab';
 import PrintSheetPage from './components/PrintSheetPage';
+import BackupManagerModal from './components/BackupManagerModal';
 import { useFirebaseSync } from './useFirebaseSync';
 
 // Icons
@@ -171,6 +172,16 @@ export default function App() {
   const [priceTier, setPriceTier] = useState<'retail' | 'wholesale'>('retail');
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
   const [prefilledPOProductId, setPrefilledPOProductId] = useState<string | null>(null);
+  const [showBackupManager, setShowBackupManager] = useState(false);
+
+  // Initial Auto-Backup Prompt
+  useEffect(() => {
+    const isElectron = !!(window as any).require;
+    if (isElectron && !localStorage.getItem('hw_auto_backup_path') && !localStorage.getItem('hw_backup_prompted')) {
+      setShowBackupManager(true);
+      localStorage.setItem('hw_backup_prompted', 'true');
+    }
+  }, []);
 
   // Synced side-effects to LocalStorage
   useEffect(() => {
@@ -212,6 +223,43 @@ export default function App() {
     localStorage.setItem('hw_audit_logs', JSON.stringify(auditLogs));
   }, [auditLogs]);
   useFirebaseSync('auditLogs', auditLogs);
+
+  // Local Electron automatic backup sync
+  useEffect(() => {
+    const isElectron = !!(window as any).require;
+    const primaryPath = localStorage.getItem('hw_auto_backup_path');
+    const secondaryPath = localStorage.getItem('hw_secondary_backup_path');
+
+    if (isElectron && primaryPath) {
+      try {
+        const fs = (window as any).require('fs');
+        const pathModule = (window as any).require('path');
+        const backupData = {
+          appSign: "nizami-hardware-pos-ledger",
+          timestamp: new Date().toISOString(),
+          storeSettings, products, customers, suppliers, purchaseOrders, sales, expenses, users, auditLogs
+        };
+        const stringified = JSON.stringify(backupData, null, 2);
+        
+        const customFileName = `NIZAMIHP_AUTO_${new Date().toISOString().split('T')[0].replace(/-/g, '_')}.json`;
+        
+        if (!fs.existsSync(primaryPath)) {
+          fs.mkdirSync(primaryPath, { recursive: true });
+        }
+        
+        const fullPath = pathModule.join(primaryPath, customFileName);
+        fs.writeFileSync(fullPath, stringified, 'utf8');
+
+        if (secondaryPath) {
+            if (!fs.existsSync(secondaryPath)) fs.mkdirSync(secondaryPath, { recursive: true });
+            const secPath = pathModule.join(secondaryPath, customFileName);
+            fs.writeFileSync(secPath, stringified, 'utf8');
+        }
+      } catch (err) {
+        console.error("Auto Backup Error:", err);
+      }
+    }
+  }, [products, customers, suppliers, purchaseOrders, sales, expenses, users, auditLogs, storeSettings]);
 
   // Log Activity Helper
   const logActivity = (actionType: AuditLog['actionType'], details: string) => {
@@ -356,6 +404,16 @@ export default function App() {
       alert(language === 'ur' ? 'ماشاءاللہ! تمام ڈیٹا کامیابی سے بحال کر دیا گیا ہے۔' : 'Excellent! All databases have been successfully restored and synchronized.');
     } catch (e) {
       alert((language === 'ur' ? 'ریسٹور سسٹم ایرر: ' : 'Restore system error: ') + (e as Error).message);
+    }
+  };
+
+  const handleRestoreFromPath = (filePath: string) => {
+    try {
+      const fs = (window as any).require('fs');
+      const content = fs.readFileSync(filePath, 'utf8');
+      handleImportBackup(content);
+    } catch (e: any) {
+      alert("Error reading backup file: " + e.message);
     }
   };
 
@@ -1381,7 +1439,7 @@ export default function App() {
                 }
               }}
               onQuickRestock={handleQuickRestockPO}
-              onBackup={handleExportBackup}
+              onBackup={() => setShowBackupManager(true)}
               onRestore={handleImportBackup}
             />
           )}
@@ -1480,6 +1538,22 @@ export default function App() {
           </div>
         </footer>
       </main>
+
+      <BackupManagerModal
+        isOpen={showBackupManager}
+        onClose={() => setShowBackupManager(false)}
+        lang={language}
+        storeSettings={storeSettings}
+        products={products}
+        customers={customers}
+        suppliers={suppliers}
+        purchaseOrders={purchaseOrders}
+        sales={sales}
+        expenses={expenses}
+        users={users}
+        auditLogs={auditLogs}
+        onRestoreFromPath={handleRestoreFromPath}
+      />
     </div>
   );
 }

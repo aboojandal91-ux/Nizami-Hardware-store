@@ -2,6 +2,8 @@
   "name": "nizami-hardware-pos",
   "private": true,
   "version": "1.0.0",
+  "description": "Hardware Store POS and Inventory Management System",
+  "author": "Nizami Hardware",
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {
