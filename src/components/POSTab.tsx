@@ -22,7 +22,8 @@ import {
   Plus,
   Minus,
   Check,
-  AlertCircle
+  AlertCircle,
+  ArrowLeftRight
 } from 'lucide-react';
 
 interface POSTabProps {
@@ -66,6 +67,7 @@ export default function POSTab({
   const [productQuery, setProductQuery] = useState('');
   const [rightBarcodeQuery, setRightBarcodeQuery] = useState('');
   const [discountPercent, setDiscountPercent] = useState<number>(0);
+  const [discountRupees, setDiscountRupees] = useState<number>(0);
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'khata'>('cash');
   
   // Held drawer toggle
@@ -179,7 +181,8 @@ export default function POSTab({
 
   // Calculations
   const cartSubtotal = activeCart.reduce((sum, item) => sum + (item.sellingPrice * item.quantity), 0);
-  const discountAmount = cartSubtotal * (discountPercent / 100);
+  const discountPercentAmount = cartSubtotal * (discountPercent / 100);
+  const discountAmount = discountPercentAmount + discountRupees;
   const cartTotal = Math.max(0, cartSubtotal - discountAmount);
 
   // Hold active checkout
@@ -205,6 +208,7 @@ export default function POSTab({
     setShowHoldModal(false);
     setSelectedCustomerId(null);
     setDiscountPercent(0);
+    setDiscountRupees(0);
   };
 
   // Resume Checkout
@@ -269,6 +273,7 @@ export default function POSTab({
     setActiveCart([]);
     setSelectedCustomerId(null);
     setDiscountPercent(0);
+    setDiscountRupees(0);
     setPaymentMethod('cash');
   };
 
@@ -719,15 +724,39 @@ export default function POSTab({
                         }
                       }
                     }}
-                    className="w-full text-right font-mono text-xs outline-hidden"
+                    className="w-full text-right font-mono text-xs outline-hidden px-1"
                   />
                   <span className="text-[10px] text-slate-400 p-1 bg-slate-50 border-l border-slate-200">%</span>
+                </div>
+              </div>
+              <div className="flex justify-between text-slate-500 items-center">
+                <span>{lang === 'ur' ? 'ڈسکاؤنٹ روپے:' : 'Discount (Rs.):'}</span>
+                <div className="flex items-center border border-slate-200 rounded text-slate-800 bg-white font-semibold shadow-xs max-w-[100px]">
+                  <span className="text-[10px] text-slate-400 p-1 bg-slate-50 border-r border-slate-200">Rs.</span>
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder="0"
+                    value={discountRupees || ''}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === '') {
+                        setDiscountRupees(0);
+                      } else {
+                        const parsed = parseInt(val, 10);
+                        if (!isNaN(parsed)) {
+                          setDiscountRupees(Math.max(0, parsed));
+                        }
+                      }
+                    }}
+                    className="w-full text-right font-mono text-xs outline-hidden px-1"
+                  />
                 </div>
               </div>
 
               {discountAmount > 0 && (
                 <div className="flex justify-between text-orange-600 font-medium font-sans">
-                  <span>{lang === 'ur' ? 'بچت کی گئی رقم:' : 'Saved Amount'} ({discountPercent}%):</span>
+                  <span>{lang === 'ur' ? 'بچت کی گئی رقم:' : 'Saved Amount'} (Rs. {discountRupees} & {discountPercent}%):</span>
                   <span className="font-mono">-Rs. {discountAmount.toFixed(2)}</span>
                 </div>
               )}
@@ -824,6 +853,15 @@ export default function POSTab({
                 <span>Hold Billing Session</span>
               </button>
             )}
+
+            {/* Exchange / Return Action */}
+            <button
+              onClick={() => alert(lang === 'ur' ? 'ایکسچینج اور ریٹرن سہولت زیر تعمیر ہے۔' : 'Exchange / Return feature is under construction.')}
+              className="w-full text-center py-2.5 bg-slate-50 hover:bg-slate-100 text-slate-700 rounded-xl text-xs font-bold transition-all border border-slate-200 flex items-center justify-center gap-2 cursor-pointer shadow-2xs mt-2"
+            >
+              <ArrowLeftRight className="w-4 h-4 text-slate-600" />
+              <span>{lang === 'ur' ? 'سامان کی واپسی / تبادلہ' : 'Exchange / Return Desk'}</span>
+            </button>
           </div>
         </div>
       </div>

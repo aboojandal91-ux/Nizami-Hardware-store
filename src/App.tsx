@@ -1468,6 +1468,17 @@ export default function App() {
             />
           )}
         </div>
+
+        {/* Developer Attribution Footer */}
+        <footer className="px-6 py-3 border-t border-slate-200 bg-slate-50 mt-auto shrink-0 shadow-[0_-2px_10px_-4px_rgba(0,0,0,0.05)] relative z-10">
+          <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-center gap-2 md:gap-4 text-xs font-medium text-slate-500">
+            <span className="flex items-center gap-1.5"><span className="text-slate-400">Developer:</span> AbooJandal</span>
+            <span className="hidden md:block text-slate-300">•</span>
+            <span className="flex items-center gap-1.5"><span className="text-slate-400">Contact:</span> 03321666300</span>
+            <span className="hidden md:block text-slate-300">•</span>
+            <span className="flex items-center gap-1.5"><span className="text-slate-400">Address:</span> Nizami Public High School, Duki</span>
+          </div>
+        </footer>
       </main>
     </div>
   );
