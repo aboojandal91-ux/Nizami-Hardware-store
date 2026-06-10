@@ -12,7 +12,8 @@ import {
   Plus, 
   CreditCard,
   Database,
-  Upload
+  Upload,
+  Download
 } from 'lucide-react';
 
 interface DashboardTabProps {
@@ -396,7 +397,7 @@ export default function DashboardTab({
                 </div>
               </div>
   
-              <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
                 <button
                   type="button"
                   onClick={onBackup}
@@ -407,6 +408,32 @@ export default function DashboardTab({
                   <span>{lang === 'ur' ? 'بیک اپ فائل' : 'Create Backup'}</span>
                 </button>
   
+                <label
+                  className="py-2.5 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 font-bold rounded-xl border border-emerald-200 transition cursor-pointer text-center flex items-center justify-center gap-1.5"
+                  title={lang === 'ur' ? 'محفوظ کردہ بیک اپ فائل سے ڈیٹا بحال کریں' : 'Restore database from an exported backup file'}
+                >
+                  <input 
+                    type="file" 
+                    accept=".json" 
+                    className="hidden" 
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file && onRestore) {
+                        const reader = new FileReader();
+                        reader.onload = (event) => {
+                          if (event.target?.result) {
+                            onRestore(event.target.result as string);
+                          }
+                        };
+                        reader.readAsText(file);
+                      }
+                      e.target.value = '';
+                    }} 
+                  />
+                  <Download className="w-4 h-4" />
+                  <span>{lang === 'ur' ? 'ڈیٹا ریسٹور' : 'Restore Backup'}</span>
+                </label>
+
                 <button
                   type="button"
                   onClick={async () => {
