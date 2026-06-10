@@ -12,7 +12,6 @@ import {
   Plus, 
   CreditCard,
   Database,
-  Upload,
   Download
 } from 'lucide-react';
 
@@ -392,12 +391,12 @@ export default function DashboardTab({
                     {lang === 'ur' ? 'ڈیٹا بیک اپ اور بحالی' : 'Sovereign Database Backup & Sync'}
                   </h3>
                   <p className="text-[10px] text-slate-450 font-sans">
-                    {lang === 'ur' ? 'پورے سسٹم کا بیک اپ ڈاؤن لوڈ یا ری سٹور کریں۔' : 'Export secure JSON datasets or sync to Firebase Firestore.'}
+                    {lang === 'ur' ? 'پورے سسٹم کا بیک اپ ڈاؤن لوڈ یا ری سٹور کریں۔' : 'Export secure JSON datasets or restore from local files.'}
                   </p>
                 </div>
               </div>
   
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
                 <button
                   type="button"
                   onClick={onBackup}
@@ -433,24 +432,6 @@ export default function DashboardTab({
                   <Download className="w-4 h-4" />
                   <span>{lang === 'ur' ? 'ڈیٹا ریسٹور' : 'Restore Backup'}</span>
                 </label>
-
-                <button
-                  type="button"
-                  onClick={async () => {
-                    if (window.confirm("Do you want to migrate all local offline records to Firebase Cloud?")) {
-                      const { migrateLocalToFirebase } = await import('../firebaseMigration');
-                      const success = await migrateLocalToFirebase();
-                      if (success) {
-                        alert("Firebase Migration Completed! All local data is pushed to Firestore.");
-                      }
-                    }
-                  }}
-                  className="py-2.5 bg-sky-100 hover:bg-sky-200 text-sky-800 font-bold rounded-xl border border-sky-200 transition cursor-pointer text-center flex items-center justify-center gap-1.5"
-                  title="Upload all local hardware data to Firebase Cloud Firestore"
-                >
-                  <Upload className="w-4 h-4" />
-                  <span>Push to Firebase</span>
-                </button>
               </div>
             
             <p className="text-[9px] text-slate-400 font-sans italic text-center">

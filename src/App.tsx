@@ -33,7 +33,7 @@ import ReportsTab from './components/ReportsTab';
 import StaffTab from './components/StaffTab';
 import PrintSheetPage from './components/PrintSheetPage';
 import BackupManagerModal from './components/BackupManagerModal';
-import { useFirebaseSync } from './useFirebaseSync';
+
 
 // Icons
 import LoginScreen from './components/LoginScreen';
@@ -187,42 +187,34 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('hw_products', JSON.stringify(products));
   }, [products]);
-  useFirebaseSync('products', products);
 
   useEffect(() => {
     localStorage.setItem('hw_customers', JSON.stringify(customers));
   }, [customers]);
-  useFirebaseSync('customers', customers, ['ledger', 'paymentSchedule']);
 
   useEffect(() => {
     localStorage.setItem('hw_suppliers', JSON.stringify(suppliers));
   }, [suppliers]);
-  useFirebaseSync('suppliers', suppliers, ['ledger']);
 
   useEffect(() => {
     localStorage.setItem('hw_purchase_orders', JSON.stringify(purchaseOrders));
   }, [purchaseOrders]);
-  useFirebaseSync('purchaseOrders', purchaseOrders, ['paymentSchedule']);
 
   useEffect(() => {
     localStorage.setItem('hw_sales', JSON.stringify(sales));
   }, [sales]);
-  useFirebaseSync('sales', sales);
 
   useEffect(() => {
     localStorage.setItem('hw_expenses', JSON.stringify(expenses));
   }, [expenses]);
-  useFirebaseSync('expenses', expenses);
 
   useEffect(() => {
     localStorage.setItem('hw_users', JSON.stringify(users));
   }, [users]);
-  // Users are omitted from firebase sync here, as Auth is usually used.
 
   useEffect(() => {
     localStorage.setItem('hw_audit_logs', JSON.stringify(auditLogs));
   }, [auditLogs]);
-  useFirebaseSync('auditLogs', auditLogs);
 
   // Local Electron automatic backup sync
   useEffect(() => {
