@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Minus, Square, Copy, X, Maximize2, Minimize2, HardDrive, Printer, Database, Sparkles, Monitor } from 'lucide-react';
+import { Maximize2, Minimize2, HardDrive, Printer, Database, Monitor } from 'lucide-react';
 import { AbooLogo } from './AbooLogo';
 import { Language } from '../translations';
 
@@ -13,7 +13,6 @@ export const ElectronDesktopBar: React.FC<ElectronDesktopBarProps> = ({
   lang = 'en'
 }) => {
   const [isElectron, setIsElectron] = useState(false);
-  const [isMaximized, setIsMaximized] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [printerCount, setPrinterCount] = useState<number | null>(null);
 
@@ -22,11 +21,6 @@ export const ElectronDesktopBar: React.FC<ElectronDesktopBarProps> = ({
     setIsElectron(electronAvailable);
 
     if (electronAvailable && (window as any).electronAPI) {
-      // Check window maximized state
-      (window as any).electronAPI.isMaximized?.().then((max: boolean) => {
-        setIsMaximized(max);
-      }).catch(() => {});
-
       // Query printers
       (window as any).electronAPI.getPrinters?.().then((printers: any[]) => {
         if (Array.isArray(printers)) {
@@ -35,35 +29,6 @@ export const ElectronDesktopBar: React.FC<ElectronDesktopBarProps> = ({
       }).catch(() => {});
     }
   }, []);
-
-  const handleMinimize = () => {
-    if ((window as any).electronAPI?.minimize) {
-      (window as any).electronAPI.minimize();
-    } else if ((window as any).require) {
-      const { ipcRenderer } = (window as any).require('electron');
-      ipcRenderer?.send('window-minimize');
-    }
-  };
-
-  const handleMaximize = () => {
-    if ((window as any).electronAPI?.maximize) {
-      (window as any).electronAPI.maximize();
-      setIsMaximized(!isMaximized);
-    } else if ((window as any).require) {
-      const { ipcRenderer } = (window as any).require('electron');
-      ipcRenderer?.send('window-maximize');
-      setIsMaximized(!isMaximized);
-    }
-  };
-
-  const handleClose = () => {
-    if ((window as any).electronAPI?.close) {
-      (window as any).electronAPI.close();
-    } else if ((window as any).require) {
-      const { ipcRenderer } = (window as any).require('electron');
-      ipcRenderer?.send('window-close');
-    }
-  };
 
   const handleToggleFullscreen = () => {
     if ((window as any).electronAPI?.toggleFullscreen) {
@@ -121,7 +86,7 @@ export const ElectronDesktopBar: React.FC<ElectronDesktopBarProps> = ({
         </div>
       </div>
 
-      {/* Right: Window Controls */}
+      {/* Right: Actions */}
       <div className="flex items-center gap-1" style={{ WebkitAppRegion: 'no-drag' } as any}>
         {/* Fullscreen Kiosk toggle */}
         <button
@@ -131,36 +96,6 @@ export const ElectronDesktopBar: React.FC<ElectronDesktopBarProps> = ({
           title={isFullscreen ? "Exit Fullscreen" : "POS Kiosk Fullscreen Mode (F11)"}
         >
           {isFullscreen ? <Minimize2 className="w-3 h-3" /> : <Maximize2 className="w-3 h-3" />}
-        </button>
-
-        {/* Minimize button */}
-        <button
-          type="button"
-          onClick={handleMinimize}
-          className="p-1 px-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded transition cursor-pointer"
-          title="Minimize to Taskbar"
-        >
-          <Minus className="w-3 h-3" />
-        </button>
-
-        {/* Maximize / Restore button */}
-        <button
-          type="button"
-          onClick={handleMaximize}
-          className="p-1 px-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded transition cursor-pointer"
-          title={isMaximized ? "Restore Window" : "Maximize Window"}
-        >
-          {isMaximized ? <Copy className="w-3 h-3" /> : <Square className="w-3 h-3" />}
-        </button>
-
-        {/* Close button */}
-        <button
-          type="button"
-          onClick={handleClose}
-          className="p-1 px-2 text-slate-400 hover:text-white hover:bg-rose-600 rounded transition cursor-pointer"
-          title="Close Application"
-        >
-          <X className="w-3 h-3" />
         </button>
       </div>
     </div>
