@@ -3,16 +3,16 @@ export type Language = 'en' | 'ur';
 export const translations = {
   en: {
     // Brand & Roles
-    appName: "Nizami Hardware store",
-    appSubtitle: "Simple Hardware POS",
+    appName: "Aboo's Software Management System",
+    appSubtitle: "Business & POS Management System",
     adminRole: "Manager",
     cashierRole: "Cashier",
     activeLabel: "Active Tab",
-    workspace: "shop",
+    workspace: "system",
 
     // Login screen
-    loginTitle: "Nizami Hardware store",
-    loginSubtitle: "POS Billing & Udhaar Khata",
+    loginTitle: "Aboo's Software Management System",
+    loginSubtitle: "Enterprise POS, Inventory & Ledger System",
     usernameLabel: "Username",
     passwordLabel: "PIN Code",
     usernamePrefilled: "E.g., admin",
@@ -67,7 +67,7 @@ export const translations = {
     retailTariff: "Retail Tariff",
     wholesaleContractor: "Contractor Wholesale",
     heldTickets: "Held Tickets",
-    posFinderTitle: "Hardware Store Active POS Finder",
+    posFinderTitle: "Active Point of Sale Item Finder",
     posFinderDesc: "Scan barcode, type SKU, or search partial spec text (e.g., \"1/2 inch\", \"cement\").",
     activePOSCheckouts: "Active Checkouts Queue Line Item",
     subTotal: "Cart Subtotal",
@@ -121,16 +121,16 @@ export const translations = {
   },
   ur: {
     // Brand & Roles
-    appName: "نظامی ہارڈویئر اسٹور",
-    appSubtitle: "پروفیشنل ہارڈویئر سسٹم",
+    appName: "ابو سافٹ ویئر مینجمنٹ سسٹم",
+    appSubtitle: "بزنس و پی او ایس مینجمنٹ سسٹم",
     adminRole: "ایڈمنسٹریٹر مینیجر",
     cashierRole: "کیشئیر آپریٹر",
     activeLabel: "فعال ماڈیول",
     workspace: "ورک اسپیس",
 
     // Login screen
-    loginTitle: "نظامی ہارڈویئر اسٹور",
-    loginSubtitle: "انٹرپرائز پوائنٹ آف سیل اور ہارڈویئر کھاتہ سسٹم",
+    loginTitle: "ابو سافٹ ویئر مینجمنٹ سسٹم",
+    loginSubtitle: "بزنس پوائنٹ آف سیل، انوینٹری اور کھاتہ مینجمنٹ سسٹم",
     usernameLabel: "صارف کا نام (Username)",
     passwordLabel: "سیکریٹ پاس کوڈ / پن کوڈ (PIN)",
     usernamePrefilled: "مثال کے طور پر: admin",
@@ -185,7 +185,7 @@ export const translations = {
     retailTariff: "ریٹیل قیمت (عام)",
     wholesaleContractor: "ٹھیکیدار ہول سیل قیمت",
     heldTickets: "محفوظ شدہ عارضی بل",
-    posFinderTitle: "ہارڈویئر سٹور ایکٹو پی او ایس سرچ",
+    posFinderTitle: "ایکٹو پوائنٹ آف سیل سرچ",
     posFinderDesc: "بار کوڈ اسکین کریں یا پروڈکٹ کا نام اور نمبر سرچ کریں جیسے \"سیمنٹ\"، \"پائپ\"۔",
     activePOSCheckouts: "موجودہ بل کے آئٹمز کی فہرست",
     subTotal: "بنیادی بل کی رقم",

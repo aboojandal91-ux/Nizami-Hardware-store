@@ -893,7 +893,7 @@ export default function SupplierTab({
                 <label className="font-semibold text-slate-700">Factory Name</label>
                 <input
                   type="text"
-                  placeholder="e.g., Nizami Hardware store"
+                  placeholder="e.g., Prime Industries & Distribution"
                   value={newSuppName}
                   onChange={(e) => setNewSuppName(e.target.value)}
                   className="w-full bg-slate-100 border border-slate-200 rounded p-2 text-xs focus:ring-2 focus:ring-blue-500 outline-none"

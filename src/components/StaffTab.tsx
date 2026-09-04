@@ -20,18 +20,22 @@ interface StaffTabProps {
   auditLogs: AuditLog[];
   onAddUser: (username: string, fullname: string, pin: string) => void;
   onDeleteUser: (id: string) => void;
+  onUpdateUserPin?: (userId: string, newPin: string, newFullname?: string) => void;
   lang: Language;
 }
 
-export default function StaffTab({ users, auditLogs, onAddUser, onDeleteUser, lang }: StaffTabProps) {
+export default function StaffTab({ users, auditLogs, onAddUser, onDeleteUser, onUpdateUserPin, lang }: StaffTabProps) {
   const t = translations[lang];
 
   // Forms
   const [newUsername, setNewUsername] = useState('');
   const [newFullname, setNewFullname] = useState('');
   const [newPin, setNewPin] = useState('');
-  
-  // Audits Filter and Search States
+
+  // Edit password modal state
+  const [editingUser, setEditingUser] = useState<UserAccount | null>(null);
+  const [editNewPin, setEditNewPin] = useState('');
+  const [editNewFullname, setEditNewFullname] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedUserFilter, setSelectedUserFilter] = useState('all');
   const [selectedActionFilter, setSelectedActionFilter] = useState('all');
@@ -196,18 +200,33 @@ export default function StaffTab({ users, auditLogs, onAddUser, onDeleteUser, la
                     </div>
                   </div>
 
-                  {u.role !== 'admin' && (
+                  <div className="flex items-center gap-1">
                     <button
+                      type="button"
                       onClick={() => {
-                        if (confirm(lang === 'ur' ? `کیا آپ واقعی اس صارف "${u.fullname}" کا اکاؤنٹ حذف کرنا چاہتے ہیں؟` : `Are you sure you want to delete staff account "${u.fullname}"?`)) {
-                          onDeleteUser(u.id);
-                        }
+                        setEditingUser(u);
+                        setEditNewPin('');
+                        setEditNewFullname(u.fullname);
                       }}
-                      className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-100 rounded-lg transition-colors cursor-pointer"
+                      title={lang === 'ur' ? 'پاس ورڈ تبدیل کریں' : 'Change Password / PIN'}
+                      className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 border border-transparent hover:border-blue-100 rounded-lg transition-colors cursor-pointer"
                     >
-                      <Trash2 className="w-4 h-4" />
+                      <KeyRound className="w-4 h-4" />
                     </button>
-                  )}
+                    {u.role !== 'admin' && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (confirm(lang === 'ur' ? `کیا آپ واقعی اس صارف "${u.fullname}" کا اکاؤنٹ حذف کرنا چاہتے ہیں؟` : `Are you sure you want to delete staff account "${u.fullname}"?`)) {
+                            onDeleteUser(u.id);
+                          }
+                        }}
+                        className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-100 rounded-lg transition-colors cursor-pointer"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -350,6 +369,80 @@ export default function StaffTab({ users, auditLogs, onAddUser, onDeleteUser, la
         </div>
 
       </div>
+
+      {/* Quick Password & Profile Edit Modal */}
+      {editingUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="w-full max-w-sm bg-white rounded-2xl p-6 shadow-2xl border border-slate-200">
+            <h3 className="font-extrabold text-slate-900 text-sm flex items-center gap-2 mb-1">
+              <KeyRound className="w-4 h-4 text-blue-600" />
+              {lang === 'ur' ? 'پاس ورڈ / پن تبدیل کریں' : 'Update Password / PIN'}
+            </h3>
+            <p className="text-xs text-slate-500 mb-4">
+              @{editingUser.username} ({editingUser.fullname})
+            </p>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (editNewPin.trim().length < 4) {
+                  alert(lang === 'ur' ? 'پاس ورڈ کم از کم 4 ہندسوں پر مشتمل ہونا چاہیے!' : 'PIN must be at least 4 characters long!');
+                  return;
+                }
+                if (onUpdateUserPin) {
+                  onUpdateUserPin(editingUser.id, editNewPin.trim(), editNewFullname.trim() || editingUser.fullname);
+                }
+                alert(lang === 'ur' ? 'پاس ورڈ کامیابی سے تبدیل ہو گیا ہے!' : 'Password updated successfully!');
+                setEditingUser(null);
+              }}
+              className="space-y-3"
+            >
+              <div>
+                <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider block mb-1">
+                  {t.fullnameLabel}
+                </label>
+                <input
+                  type="text"
+                  value={editNewFullname}
+                  onChange={(e) => setEditNewFullname(e.target.value)}
+                  className="w-full p-2 bg-slate-50 border border-slate-200 rounded text-xs text-slate-900 outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider block mb-1">
+                  {lang === 'ur' ? 'نیا پاس ورڈ / پن کوڈ' : 'New Security PIN / Password'}
+                </label>
+                <input
+                  type="password"
+                  value={editNewPin}
+                  onChange={(e) => setEditNewPin(e.target.value)}
+                  placeholder="Min 4 characters"
+                  className="w-full p-2 bg-slate-50 border border-slate-200 rounded text-xs text-slate-900 font-mono outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setEditingUser(null)}
+                  className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-xs font-semibold cursor-pointer"
+                >
+                  {lang === 'ur' ? 'منسوخ' : 'Cancel'}
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-bold shadow-sm cursor-pointer"
+                >
+                  {lang === 'ur' ? 'محفوظ کریں' : 'Save PIN'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

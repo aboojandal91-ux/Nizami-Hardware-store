@@ -136,7 +136,7 @@ export default function PrintSheetPage() {
               ★ BARCODE SHEET MATRIX ★
             </h1>
             <p className="margin-0 text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">
-              Nizami Hardware Store • Standard Layout Sheet Matrix
+              Aboo's Software Management System • Standard Layout Sheet Matrix
             </p>
           </div>
           <div className="text-right font-mono text-[10px] text-slate-750 font-bold leading-normal">
@@ -175,7 +175,7 @@ export default function PrintSheetPage() {
               >
                 {includeBranding && (
                   <div className="text-[8px] font-black text-slate-600 uppercase tracking-widest border-b border-dashed border-slate-300 pb-1 mb-1 w-full truncate whitespace-nowrap">
-                    ★ NIZAMI HARDWARE STORE ★
+                    ★ ABOO'S SOFTWARE MANAGEMENT SYSTEM ★
                   </div>
                 )}
                 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Customer, LedgerEntry, PaymentSchedule } from '../types';
 import { 
   Search, 
@@ -22,6 +22,7 @@ interface KhataTabProps {
   onReceivePayment: (customerId: string, amount: number, note: string) => void;
   onUpdateSchedule: (customerId: string, scheduleList: PaymentSchedule[]) => void;
   lang?: 'en' | 'ur';
+  initialCustomerId?: string | null;
 }
 
 export default function KhataTab({
@@ -30,11 +31,18 @@ export default function KhataTab({
   onReceivePayment,
   onUpdateSchedule,
   lang = 'en',
+  initialCustomerId,
 }: KhataTabProps) {
   // Query Filter
   const [khataQuery, setKhataQuery] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'contractor' | 'debtor'>('all');
-  const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(customers[0]?.id || null);
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(initialCustomerId || customers[0]?.id || null);
+
+  useEffect(() => {
+    if (initialCustomerId) {
+      setSelectedCustomerId(initialCustomerId);
+    }
+  }, [initialCustomerId]);
 
   // Partial pay state modal
   const [showPayModal, setShowPayModal] = useState<Customer | null>(null);

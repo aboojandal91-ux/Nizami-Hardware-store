@@ -1,6 +1,6 @@
 {
-  "name": "Nizami Hardware Suite",
-  "description": "An advanced ERP and POS suite for hardware retail, featuring multi-unit stocks, dual-pricing tier schedules, contractor credit books & khata installment accounting, and automated purchase order restocks.",
+  "name": "Aboo's Software Management System",
+  "description": "Enterprise software management, POS billing, inventory tracking, suppliers, and khata ledger system for Aboo's Software Management System.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

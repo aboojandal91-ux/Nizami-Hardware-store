@@ -33,7 +33,9 @@ import ReportsTab from './components/ReportsTab';
 import StaffTab from './components/StaffTab';
 import PrintSheetPage from './components/PrintSheetPage';
 import BackupManagerModal from './components/BackupManagerModal';
-
+import { AbooLogo } from './components/AbooLogo';
+import { ChangePasswordModal } from './components/ChangePasswordModal';
+import { ElectronDesktopBar } from './components/ElectronDesktopBar';
 
 // Icons
 import LoginScreen from './components/LoginScreen';
@@ -51,7 +53,8 @@ import {
   HardHat,
   AlertTriangle,
   HeartHandshake,
-  ShieldAlert
+  ShieldAlert,
+  KeyRound
 } from 'lucide-react';
 
 export default function App() {
@@ -79,16 +82,23 @@ export default function App() {
     const saved = localStorage.getItem('hw_store_settings');
     if (saved) {
       try {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        if (parsed.storeName?.includes('Hardware') || parsed.storeName?.includes('Nizami')) {
+          parsed.storeName = "Aboo's Software Management System";
+          parsed.storePhone = '03321666300';
+          parsed.storeEmail = 'aboojandal91@gmail.com';
+          parsed.storeAddress = 'Duki, Balochistan, Pakistan';
+        }
+        return parsed;
       } catch (e) {
         // Fallback
       }
     }
     return {
-      storeName: 'Nizami Hardware Store',
-      storePhone: '+92 300 1234567',
-      storeEmail: 'nizamihardware@gmail.com',
-      storeAddress: 'Main Gate Bazaar, Nizami Chowk, Lahore, Pakistan'
+      storeName: "Aboo's Software Management System",
+      storePhone: '03321666300',
+      storeEmail: 'aboojandal91@gmail.com',
+      storeAddress: 'Duki, Balochistan, Pakistan'
     };
   });
 
@@ -173,6 +183,7 @@ export default function App() {
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
   const [prefilledPOProductId, setPrefilledPOProductId] = useState<string | null>(null);
   const [showBackupManager, setShowBackupManager] = useState(false);
+  const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
 
   // Initial Auto-Backup Prompt
   useEffect(() => {
@@ -227,13 +238,13 @@ export default function App() {
         const fs = (window as any).require('fs');
         const pathModule = (window as any).require('path');
         const backupData = {
-          appSign: "nizami-hardware-pos-ledger",
+          appSign: "aboo-hardware-pos-ledger",
           timestamp: new Date().toISOString(),
           storeSettings, products, customers, suppliers, purchaseOrders, sales, expenses, users, auditLogs
         };
         const stringified = JSON.stringify(backupData, null, 2);
         
-        const customFileName = `NIZAMIHP_AUTO_${new Date().toISOString().split('T')[0].replace(/-/g, '_')}.json`;
+        const customFileName = `ABOOHP_AUTO_${new Date().toISOString().split('T')[0].replace(/-/g, '_')}.json`;
         
         if (!fs.existsSync(primaryPath)) {
           fs.mkdirSync(primaryPath, { recursive: true });
@@ -288,6 +299,25 @@ export default function App() {
     }
   };
 
+  const handleUpdateUserPin = (userId: string, newPin: string, newFullname?: string) => {
+    setUsers(prevUsers => {
+      const updated = prevUsers.map(u => {
+        if (u.id === userId || u.username === userId) {
+          return {
+            ...u,
+            pin: newPin,
+            fullname: newFullname || u.fullname
+          };
+        }
+        return u;
+      });
+      localStorage.setItem('hw_users', JSON.stringify(updated));
+      return updated;
+    });
+    const target = users.find(u => u.id === userId || u.username === userId);
+    logActivity('add_product', `Updated security password/PIN for user account @${target?.username || userId}`);
+  };
+
   // Global Actions - Expenses
   const handleAddExpense = (newExpense: Omit<Expense, 'id' | 'date'>) => {
     const expense: Expense = {
@@ -322,7 +352,7 @@ export default function App() {
   const handleExportBackup = () => {
     try {
       const backupData = {
-        appSign: "nizami-hardware-pos-ledger",
+        appSign: "aboo-hardware-pos-ledger",
         timestamp: new Date().toISOString(),
         storeSettings,
         products,
@@ -340,7 +370,7 @@ export default function App() {
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `Nizami_Hardware_DataBackup_${new Date().toISOString().split('T')[0]}.json`;
+      link.download = `Aboos_SMS_DataBackup_${new Date().toISOString().split('T')[0]}.json`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -355,8 +385,9 @@ export default function App() {
   const handleImportBackup = (fileContent: string) => {
     try {
       const parsedData = JSON.parse(fileContent);
-      if (!parsedData || parsedData.appSign !== "nizami-hardware-pos-ledger") {
-        throw new Error(language === 'ur' ? 'غلط فائل فارمیٹ! برائے مہربانی صرف نظامی ہارڈویئر بیک اپ فائل منتخب کریں۔' : 'Invalid file format! Please select a valid backup data file exported from Nizami Hardware POS.');
+      const validSigns = ["aboo-software-management-system", "aboo-hardware-pos-ledger", "nizami-hardware-pos-ledger"];
+      if (!parsedData || !validSigns.includes(parsedData.appSign)) {
+        throw new Error(language === 'ur' ? 'غلط فائل فارمیٹ! برائے مہربانی صرف ابو سافٹ ویئر مینجمنٹ سسٹم کی بیک اپ فائل منتخب کریں۔' : 'Invalid file format! Please select a valid backup data file exported from Aboo\'s Software Management System.');
       }
 
       const confirmMsg = language === 'ur'
@@ -975,28 +1006,40 @@ export default function App() {
 
   if (!currentUser) {
     return (
-      <LoginScreen 
-        onLoginSuccess={(name, role) => setCurrentUser({ username: name, role })}
-        lang={language}
-        onLanguageChange={(l) => setLanguage(l)}
-      />
+      <div className="min-h-screen flex flex-col bg-slate-950">
+        <ElectronDesktopBar onOpenBackupManager={() => setShowBackupManager(true)} lang={language} />
+        <div className="flex-1 flex flex-col">
+          <LoginScreen 
+            onLoginSuccess={(name, role) => setCurrentUser({ username: name, role })}
+            lang={language}
+            onLanguageChange={(l) => setLanguage(l)}
+            users={users}
+            onUpdateUserPin={handleUpdateUserPin}
+          />
+        </div>
+      </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row font-sans" dir={language === 'ur' ? 'rtl' : 'ltr'}>
-      
-      {/* Dynamic Nav Sidebar Column */}
-      <aside className="w-full md:w-60 bg-slate-900 text-white flex flex-col z-20 shrink-0 border-r border-slate-800">
+    <div className="min-h-screen bg-slate-50 flex flex-col font-sans" dir={language === 'ur' ? 'rtl' : 'ltr'}>
+      {/* Electron Desktop Native Window Bar */}
+      <ElectronDesktopBar onOpenBackupManager={() => setShowBackupManager(true)} lang={language} />
+
+      <div className="flex-1 flex flex-col md:flex-row">
+        {/* Dynamic Nav Sidebar Column */}
+        <aside className="w-full md:w-60 bg-slate-900 text-white flex flex-col z-20 shrink-0 border-r border-slate-800">
         
-        {/* Brand logo header - Nizami Hardware style */}
-        <div className="p-6 flex items-center gap-3 border-b border-slate-800 bg-slate-900/50">
-          <div className="w-8 h-8 bg-blue-600 rounded flex items-center justify-center font-bold text-white shrink-0 shadow-sm">
-            NH
-          </div>
-          <div>
-            <h2 className="text-xs font-bold leading-tight uppercase tracking-wider text-white">{t.appName}</h2>
-            <p className="text-[10px] text-slate-400 font-sans tracking-wide">{t.appSubtitle}</p>
+        {/* Brand logo header - Aboo's Software Management System */}
+        <div className="p-4 flex items-center gap-3 border-b border-slate-800 bg-slate-900/80">
+          <AbooLogo size="md" />
+          <div className="overflow-hidden">
+            <h2 className="text-xs font-bold leading-tight uppercase tracking-wider text-white truncate">
+              {t.appName}
+            </h2>
+            <p className="text-[10px] text-cyan-400 font-sans tracking-wide font-medium truncate">
+              {t.appSubtitle}
+            </p>
           </div>
         </div>
 
@@ -1212,6 +1255,16 @@ export default function App() {
               <span>{language === 'en' ? 'Logout' : 'خروج'}</span>
             </button>
           </div>
+
+          {/* Change Password Button */}
+          <button
+            onClick={() => setShowChangePasswordModal(true)}
+            className="w-full mt-2 py-1 px-2 text-[9px] flex items-center justify-center gap-1.5 bg-blue-950/40 text-cyan-300 hover:bg-blue-900/50 hover:text-white rounded border border-blue-900/30 cursor-pointer transition select-none font-semibold"
+            title={language === 'ur' ? 'ایڈمن / کیشئیر پاس ورڈ تبدیل کریں' : 'Change Password / PIN'}
+          >
+            <KeyRound className="w-3 h-3 text-cyan-400" />
+            <span>{language === 'ur' ? 'پاس ورڈ تبدیل کریں' : 'Change Password / PIN'}</span>
+          </button>
         </div>
 
         {/* Dynamic Low Stock alerts panel at the footer of sidebar */}
@@ -1359,8 +1412,8 @@ export default function App() {
                               <button
                                 type="button"
                                 onClick={() => {
+                                  setSelectedCustomerId(sched.customerId);
                                   setActiveTab('khata');
-                                  // Can optionally set target customer state in Khata if needed
                                 }}
                                 className="text-[9px] font-black text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-2 py-0.5 rounded cursor-pointer"
                               >
@@ -1462,6 +1515,9 @@ export default function App() {
               onCheckout={handleExecutePOSCheckout}
               lang={language}
               storeSettings={storeSettings}
+              sales={sales}
+              onReturnItem={handleReturnPOSItem}
+              onExchangeItem={handleExchangePOSItem}
             />
           )}
 
@@ -1472,6 +1528,7 @@ export default function App() {
               onReceivePayment={handleReceiveKhataPayment}
               onUpdateSchedule={handleUpdateCustomerSchedule}
               lang={language}
+              initialCustomerId={selectedCustomerId}
             />
           )}
 
@@ -1514,6 +1571,7 @@ export default function App() {
               auditLogs={auditLogs}
               onAddUser={handleAddUser}
               onDeleteUser={handleDeleteUser}
+              onUpdateUserPin={handleUpdateUserPin}
               lang={language}
             />
           )}
@@ -1526,10 +1584,12 @@ export default function App() {
             <span className="hidden md:block text-slate-300">•</span>
             <span className="flex items-center gap-1.5"><span className="text-slate-400">Contact:</span> 03321666300</span>
             <span className="hidden md:block text-slate-300">•</span>
-            <span className="flex items-center gap-1.5"><span className="text-slate-400">Address:</span> Nizami Public High School, Duki</span>
+            <span className="flex items-center gap-1.5"><span className="text-slate-400">Address:</span> Duki, Balochistan, Pakistan</span>
           </div>
         </footer>
       </main>
+
+      </div>
 
       <BackupManagerModal
         isOpen={showBackupManager}
@@ -1546,6 +1606,17 @@ export default function App() {
         auditLogs={auditLogs}
         onRestoreFromPath={handleRestoreFromPath}
       />
+
+      {showChangePasswordModal && currentUser && (
+        <ChangePasswordModal
+          isOpen={showChangePasswordModal}
+          onClose={() => setShowChangePasswordModal(false)}
+          currentUser={currentUser}
+          users={users}
+          onUpdateUserPin={handleUpdateUserPin}
+          lang={language}
+        />
+      )}
     </div>
   );
 }

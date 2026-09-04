@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Product, Customer, CartItem, SavedCart, StoreSettings } from '../types';
+import { Product, Customer, CartItem, SavedCart, StoreSettings, SaleRecord } from '../types';
 import { translations, Language } from '../translations';
+import { AbooLogo } from './AbooLogo';
+import ExchangeReturnModal from './ExchangeReturnModal';
 import { 
   Search, 
   ShoppingCart, 
@@ -45,6 +47,15 @@ interface POSTabProps {
   ) => void;
   lang?: Language;
   storeSettings: StoreSettings;
+  sales?: SaleRecord[];
+  onReturnItem?: (saleId: string, productId: string, qtyToReturn: number) => void;
+  onExchangeItem?: (
+    saleId: string, 
+    returnProductId: string, 
+    qtyToReturn: number, 
+    addProductId: string, 
+    qtyToAdd: number
+  ) => void;
 }
 
 export default function POSTab({
@@ -61,6 +72,9 @@ export default function POSTab({
   onCheckout,
   lang = 'en',
   storeSettings,
+  sales = [],
+  onReturnItem,
+  onExchangeItem,
 }: POSTabProps) {
   const t = translations[lang];
   // POS States
@@ -75,6 +89,7 @@ export default function POSTab({
   const [holdCartName, setHoldCartName] = useState('');
   const [showHoldModal, setShowHoldModal] = useState(false);
   const [pendingTierToSwitch, setPendingTierToSwitch] = useState<'retail' | 'wholesale' | null>(null);
+  const [showExchangeReturnModal, setShowExchangeReturnModal] = useState(false);
 
   // Success / Receipt Modal
   const [lastCheckedOutReceipt, setLastCheckedOutReceipt] = useState<{
@@ -356,7 +371,7 @@ export default function POSTab({
         <div className="bg-white p-5 rounded-lg border border-slate-200 shadow-sm space-y-4 font-sans">
           <div>
             <h3 className="font-semibold text-slate-900 text-sm">
-              {lang === 'ur' ? 'ہیلی فیکس پروڈکٹس پی او ایس تلاش' : 'Hardware Store Active POS Finder'}
+              {t.posFinderTitle}
             </h3>
             <p className="text-xs text-slate-500">
               {lang === 'ur' ? 'بارکوڈ اسکین کریں، SKU ٹائپ کریں یا کوئی سپیسیفیکیشن درج کریں (مثلاً پائپ، سیمنٹ)' : 'Scan barcode, type SKU, or search partial spec text (e.g., "1/2 inch", "cement").'}
@@ -429,7 +444,7 @@ export default function POSTab({
 
           {/* Quick Click Simulation */}
           <div className="pt-2">
-            <span className="text-[10px] text-slate-400 font-semibold font-mono uppercase block mb-2">Simulate Hardware Barcode Laser Gun:</span>
+            <span className="text-[10px] text-slate-400 font-semibold font-mono uppercase block mb-2">Simulate Barcode Laser Gun:</span>
             <div className="flex flex-wrap gap-2">
               {demoBarcodeScans.map(scan => (
                 <button
@@ -856,7 +871,7 @@ export default function POSTab({
 
             {/* Exchange / Return Action */}
             <button
-              onClick={() => alert(lang === 'ur' ? 'ایکسچینج اور ریٹرن سہولت زیر تعمیر ہے۔' : 'Exchange / Return feature is under construction.')}
+              onClick={() => setShowExchangeReturnModal(true)}
               className="w-full text-center py-2.5 bg-slate-50 hover:bg-slate-100 text-slate-700 rounded-xl text-xs font-bold transition-all border border-slate-200 flex items-center justify-center gap-2 cursor-pointer shadow-2xs mt-2"
             >
               <ArrowLeftRight className="w-4 h-4 text-slate-600" />
@@ -1039,9 +1054,12 @@ export default function POSTab({
             <div id="pos-receipt-print" className="bg-white p-2 text-slate-800">
               {/* Receipt Content Layout */}
               <div className="text-center space-y-1.5 border-b border-dashed border-slate-200 pb-4 select-none">
-                <span className="text-[10px] font-bold font-mono uppercase bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-md inline-block">
+                <span className="text-[10px] font-bold font-mono uppercase bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-md inline-block mb-2">
                   ✔ Bill Settled Successfully
                 </span>
+                <div className="flex justify-center mb-2">
+                  <AbooLogo variant="receipt" />
+                </div>
                 <h4 className="text-sm font-extrabold tracking-tight text-slate-900 mt-2 font-sans uppercase">
                   {storeSettings.storeName}
                 </h4>
@@ -1109,20 +1127,39 @@ export default function POSTab({
               </div>
             </div>
 
-            {/* Print trigger simulator */}
-            <div className="pt-2 flex gap-1.5 text-xs no-print">
+            {/* Print trigger with Electron Direct Silent Print & Standard Print */}
+            <div className="pt-2 flex flex-col gap-1.5 text-xs no-print">
+              <div className="flex gap-1.5">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if ((window as any).electronAPI?.printSilent) {
+                      const res = await (window as any).electronAPI.printSilent({ silent: true });
+                      if (!res.success && res.error) {
+                        window.print();
+                      }
+                    } else {
+                      window.print();
+                    }
+                  }}
+                  className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
+                >
+                  <Printer className="w-4 h-4" />
+                  <span>Thermal Silent Print</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="py-2.5 px-3 border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold rounded-xl flex items-center justify-center gap-1 cursor-pointer"
+                  title="Open system print preview dialog"
+                >
+                  Preview
+                </button>
+              </div>
               <button
-                onClick={() => {
-                  window.print();
-                }}
-                className="flex-1 py-2.5 border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold rounded-xl flex items-center justify-center gap-1 cursor-pointer"
-              >
-                <Printer className="w-4 h-4" />
-                Draft Print
-              </button>
-              <button
+                type="button"
                 onClick={() => setLastCheckedOutReceipt(null)}
-                className="flex-1 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-xl text-center cursor-pointer"
+                className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl text-center cursor-pointer"
               >
                 Keep Checkout
               </button>
@@ -1130,6 +1167,19 @@ export default function POSTab({
           </div>
         </div>
       )}
+
+      {/* Dedicated Exchange & Return Desk Modal */}
+      <ExchangeReturnModal
+        isOpen={showExchangeReturnModal}
+        onClose={() => setShowExchangeReturnModal(false)}
+        products={products}
+        customers={customers}
+        sales={sales}
+        storeSettings={storeSettings}
+        lang={lang}
+        onReturnItem={onReturnItem}
+        onExchangeItem={onExchangeItem}
+      />
     </div>
   );
 }

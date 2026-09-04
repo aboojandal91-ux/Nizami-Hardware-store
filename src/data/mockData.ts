@@ -335,7 +335,7 @@ export const INITIAL_EXPENSES = [
   {
     id: 'exp-1',
     type: 'shop',
-    description: 'Monthly electricity bill for Nizami Hardware store',
+    description: 'Monthly electricity bill for Aboo\'s Software Management System',
     amount: 150.00,
     date: '2026-05-25T11:00:00Z'
   },
